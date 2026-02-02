@@ -1,60 +1,66 @@
 <template>
-    <aside class="sidebar" :class="{ expanded: isOpen }">
+  <aside class="sidebar" :class="{ expanded: isOpen }">
 
-  <!-- BOTÓN MENÚ -->
-  <div class="menu-toggle" @click="toggleMenu">
-    ☰
-  </div>
+    <!-- BOTÓN MENÚ -->
+    <div class="menu-toggle" @click="toggleMenu">
+      <span class="material-symbols-rounded">menu</span>
+    </div>
 
-  <!-- MENÚ -->
-  <nav class="menu">
-    <a class="menu-item active">
-      <span class="icon">🏠</span>
-      <span class="text">Dashboard</span>
-    </a>
+    <!-- MENÚ -->
+    <nav class="menu">
+      <RouterLink to="/Dashboard" class="menu-item">
+        <span class="material-symbols-rounded">dashboard</span>
+        <span class="text">Dashboard</span>
+      </RouterLink>
 
-    <a class="menu-item">
-      <span class="icon">🛰</span>
-      <span class="text">Radar</span>
-    </a>
+      <RouterLink to="/Radar" class="menu-item">
+        <span class="material-symbols-rounded">radar</span>
+        <span class="text">Radar</span>
+      </RouterLink>
 
-    <a class="menu-item">
-      <span class="icon">🚢</span>
-      <span class="text">Embarcaciones</span>
-    </a>
+      <RouterLink to="/Embarcaciones" class="menu-item">
+        <span class="material-symbols-rounded">directions_boat</span>
+        <span class="text">Embarcaciones</span>
+      </RouterLink>
 
-    <a class="menu-item">
-      <span class="icon">🗺</span>
-      <span class="text">Zonas protegidas</span>
-    </a>
+      <RouterLink to="/Zonas_protegidas" class="menu-item">
+        <span class="material-symbols-rounded">map</span>
+        <span class="text">Zonas protegidas</span>
+      </RouterLink>
 
-    <a class="menu-item alert">
-      <span class="icon">🚨</span>
-      <span class="text">Alertas</span>
-    </a>
+      <RouterLink to="/Alertas" class="menu-item alert">
+        <span class="material-symbols-rounded">warning</span>
+        <span class="text">Alertas</span>
+      </RouterLink>
 
-    <a class="menu-item">
-      <span class="icon">📊</span>
-      <span class="text">Estadísticas</span>
-    </a>
+      <RouterLink to="/Estadisticas" class="menu-item">
+        <span class="material-symbols-rounded">bar_chart</span>
+        <span class="text">Estadísticas</span>
+      </RouterLink>
 
-    <a class="menu-item">
-      <span class="icon">📁</span>
-      <span class="text">Reportes</span>
-    </a>
-  </nav>
+      <RouterLink to="/Reportes" class="menu-item">
+        <span class="material-symbols-rounded">description</span>
+        <span class="text">Reportes</span>
+      </RouterLink>
+    </nav>
 
-  <!-- CONFIGURACIÓN -->
-  <div class="menu-bottom">
-    <a class="menu-item">
-      <span class="icon">⚙</span>
-      <span class="text">Configuración</span>
-    </a>
-  </div>
+    <!-- CONFIGURACIÓN + SALIR -->
+    <div class="menu-bottom">
+      <RouterLink to="/Configuracion" class="menu-item">
+        <span class="material-symbols-rounded">settings</span>
+        <span class="text">Configuración</span>
+      </RouterLink>
 
-</aside>
+      <!-- SALIR -->
+      <div class="menu-item logout" @click="logout">
+        <span class="material-symbols-rounded">logout</span>
+        <span class="text">Salir</span>
+      </div>
+    </div>
 
+  </aside>
 </template>
+
 
 <script setup>
 import { ref } from 'vue';
@@ -78,103 +84,110 @@ async function logout() {
     console.error('Error al cerrar sesión:', error);
   }
 }
+
+const isOpen = ref(false);
+
+const toggleMenu = () => {
+  isOpen.value = !isOpen.value;
+};
 </script>
 
-
 <style scoped>
-/* SIDEBAR BASE */
 .sidebar {
-  width: 70px;
+  position: fixed;
+  top: 0;
+  left: 0;
+
+  width: 72px;
   height: 100vh;
 
-  background: linear-gradient(180deg, #16a34a, #15803d);
-  color: white;
+  background: linear-gradient(
+    180deg,
+    #064e3b,
+    #022c22
+  );
 
+  color: white;
   display: flex;
   flex-direction: column;
 
   transition: width 0.3s ease;
+  box-shadow: 4px 0 20px rgba(0,0,0,0.25);
+  z-index: 100;
 }
 
-/* EXPANDIDO */
 .sidebar.expanded {
   width: 240px;
 }
 
-/* BOTÓN MENÚ */
+/* BOTÓN */
 .menu-toggle {
   height: 64px;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
-  font-size: 1.4rem;
   cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+}
 
-  border-bottom: 1px solid rgba(255,255,255,0.2);
+.menu-toggle span {
+  font-size: 1.6rem;
 }
 
 /* MENÚ */
 .menu {
   flex: 1;
-  padding-top: 10px;
+  padding-top: 12px;
 }
 
-/* ITEM */
 .menu-item {
   height: 52px;
-
   display: flex;
   align-items: center;
-
-  padding: 0 20px;
   gap: 16px;
-
-  color: white;
-  text-decoration: none;
+  padding: 0 20px;
   cursor: pointer;
-
-  transition: background 0.2s ease;
+  transition: background 0.25s ease;
 }
 
 .menu-item:hover {
-  background: rgba(0,0,0,0.15);
+  background: rgba(255,255,255,0.08);
 }
 
-/* ICONO */
-.menu-item .icon {
-  font-size: 1.3rem;
+/* ICONOS */
+.material-symbols-rounded {
+  font-size: 1.5rem;
   min-width: 24px;
-  text-align: center;
+  color: #ffff;
 }
 
 /* TEXTO */
-.menu-item .text {
+.text {
   white-space: nowrap;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transform: translateX(-5px);
+  transition: all 0.2s ease;
+  color: #fff;
 }
 
-/* MOSTRAR TEXTO SOLO EXPANDIDO */
-.sidebar.expanded .menu-item .text {
+.sidebar.expanded .text {
   opacity: 1;
+  transform: translateX(0);
 }
 
 /* ACTIVO */
 .menu-item.active {
-  background: rgba(0,0,0,0.25);
-  border-left: 4px solid white;
+  background: rgba(255,255,255,0.15);
+  border-left: 4px solid #22c55e;
 }
 
 /* ALERTAS */
 .menu-item.alert {
-  color: #ffe4e6;
+  color: #fecaca;
 }
 
-/* CONFIG ABAJO */
+/* ABAJO */
 .menu-bottom {
-  border-top: 1px solid rgba(255,255,255,0.2);
+  border-top: 1px solid rgba(255,255,255,0.15);
 }
-
 </style>
