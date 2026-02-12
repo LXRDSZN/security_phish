@@ -211,9 +211,10 @@ const getStatusLabel = (status) => {
 <style scoped>
 .estadisticas-container {
   padding: 2rem;
-  margin-left: 72px;
+  margin-left: var(--sidebar-width, 72px);
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f0 100%);
+  transition: margin-left 0.3s ease;
 }
 
 .header {
@@ -246,9 +247,15 @@ const getStatusLabel = (status) => {
 
 .stats-overview {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
   margin-bottom: 2rem;
+}
+
+@media (max-width: 1400px) {
+  .stats-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .stat-card {
@@ -640,6 +647,7 @@ const getStatusLabel = (status) => {
 @media (max-width: 768px) {
   .estadisticas-container {
     padding: 1rem;
+    margin-left: 72px;
   }
   
   .stats-overview {

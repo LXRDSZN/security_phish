@@ -63,7 +63,7 @@
 
 
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
 
@@ -90,6 +90,18 @@ const isOpen = ref(false);
 const toggleMenu = () => {
   isOpen.value = !isOpen.value;
 };
+
+// Emitir evento cuando cambie el estado del sidebar
+watch(isOpen, (newValue) => {
+  document.documentElement.style.setProperty(
+    '--sidebar-width', 
+    newValue ? '240px' : '72px'
+  );
+});
+
+onMounted(() => {
+  document.documentElement.style.setProperty('--sidebar-width', '72px');
+});
 </script>
 
 <style scoped>

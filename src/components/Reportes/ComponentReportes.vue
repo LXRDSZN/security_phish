@@ -278,9 +278,10 @@ const generateReport = () => {
 <style scoped>
 .reportes-container {
   padding: 2rem;
-  margin-left: 72px;
+  margin-left: var(--sidebar-width, 72px);
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f0 100%);
+  transition: margin-left 0.3s ease;
 }
 
 .header {
@@ -722,6 +723,7 @@ const generateReport = () => {
 @media (max-width: 768px) {
   .reportes-container {
     padding: 1rem;
+    margin-left: 72px;
   }
   
   .header {

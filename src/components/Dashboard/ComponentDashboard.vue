@@ -151,9 +151,10 @@ onMounted(() => {
 <style scoped>
 .dashboard-container {
   padding: 2rem;
-  margin-left: 72px;
+  margin-left: var(--sidebar-width, 72px);
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f0 100%);
+  transition: margin-left 0.3s ease;
 }
 
 .dashboard-header {
@@ -174,9 +175,15 @@ onMounted(() => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
   margin-bottom: 2rem;
+}
+
+@media (max-width: 1400px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .stat-card {
@@ -239,9 +246,15 @@ onMounted(() => {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: 1fr 400px;
   gap: 1.5rem;
   margin-bottom: 2rem;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .card {
@@ -424,13 +437,25 @@ onMounted(() => {
   font-size: 0.85rem;
 }
 
+@media (max-width: 1400px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
   .dashboard-container {
     padding: 1rem;
+    margin-left: 72px;
   }
   
-  .stats-grid,
-  .dashboard-grid {
+  .stats-grid {
     grid-template-columns: 1fr;
   }
 }
