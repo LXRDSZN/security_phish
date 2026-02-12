@@ -1,19 +1,17 @@
 <script setup>
 import navbar from '@/components/navbar.vue';
+import ComponentRadar from '@/components/Radar/ComponentRadar.vue';
 </script>
 <template>
-    <div class="System-Panel">
-        <navbar/>
-    </div>
-  </template>
-  
-  <style>
-  @media (min-width: 1024px) {
-    .about {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-    }
-  }
-  </style>
+  <div class="System-Panel">
+    <navbar/>
+    <ComponentRadar/>
+  </div>
+</template>
+
+<style scoped>
+.System-Panel {
+  display: flex;
+}
+</style>
   

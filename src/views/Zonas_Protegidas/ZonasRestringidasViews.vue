@@ -1,19 +1,17 @@
 <script setup>
 import navbar from '@/components/navbar.vue';
+import ComponentZonasProtegidas from '@/components/Zonas_Protegidas/ComponentZonasProtegidas.vue';
 </script>
 <template>
-    <div class="System-Panel">
-        <navbar/>
-    </div>
-  </template>
-  
-  <style>
-  @media (min-width: 1024px) {
-    .about {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-    }
-  }
-  </style>
+  <div class="System-Panel">
+    <navbar/>
+    <ComponentZonasProtegidas/>
+  </div>
+</template>
+
+<style scoped>
+.System-Panel {
+  display: flex;
+}
+</style>
   
