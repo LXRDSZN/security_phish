@@ -93,21 +93,26 @@
 };
 
 </script>
-  <style scoped>
+<style scoped>
 /* PANTALLA COMPLETA */
-
+.login-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
 
 /* CARD PRINCIPAL */
 .login-card {
   width: 900px;
+  max-width: 100%;
   height: 480px;
   background: #ffffff;
   display: flex;
   border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
-  margin-left: 15%;
-  
 }
 
 

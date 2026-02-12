@@ -223,10 +223,15 @@ const viewDetails = (id) => {
 <style scoped>
 .embarcaciones-container {
   padding: 2rem;
-  margin-left: var(--sidebar-width, 72px);
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f0 100%);
-  transition: margin-left 0.3s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .embarcaciones-container {
+    padding: 1rem;
+  }
 }
 
 .header {

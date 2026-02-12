@@ -154,11 +154,17 @@ onUnmounted(() => {
 <style scoped>
 .radar-container {
   padding: 2rem;
-  margin-left: var(--sidebar-width, 72px);
   min-height: 100vh;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: white;
-  transition: margin-left 0.3s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .radar-container {
+    padding: 1rem;
+  }
 }
 
 .radar-header {
@@ -520,11 +526,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
-  .radar-container {
-    padding: 1rem;
-    margin-left: 72px;
-  }
-  
   .radar-header {
     flex-direction: column;
     align-items: flex-start;

@@ -151,10 +151,16 @@ onMounted(() => {
 <style scoped>
 .dashboard-container {
   padding: 2rem;
-  margin-left: var(--sidebar-width, 72px);
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f0 100%);
-  transition: margin-left 0.3s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Mobile: reducir padding */
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 1rem;
+  }
 }
 
 .dashboard-header {
@@ -450,13 +456,35 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .dashboard-container {
-    padding: 1rem;
-    margin-left: 72px;
-  }
-  
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .stat-card {
+    padding: 1.25rem;
+  }
+  
+  .stat-icon {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .stat-content h3 {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .card {
+    padding: 1rem;
+  }
+  
+  .card h2 {
+    font-size: 1.1rem;
   }
 }
 </style>

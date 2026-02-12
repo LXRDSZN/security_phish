@@ -7,52 +7,62 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: LoginViews
-    },
-    {
-      path: '/Dashboard',
-      name: 'Dashboard',
-      component: () => import('@/views/Dashboard/DashboardViews.vue') 
+      component: LoginViews,
+      meta: { layout: 'auth' }
     },
     {
       path:'/Sign_up',
       name:'Sign_up',
-      component: () => import('@/views/Registro/RegistroView.vue')
+      component: () => import('@/views/Registro/RegistroView.vue'),
+      meta: { layout: 'auth' }
+    },
+    {
+      path: '/Dashboard',
+      name: 'Dashboard',
+      component: () => import('@/views/Dashboard/DashboardViews.vue'),
+      meta: { layout: 'dashboard' }
     },
     {
       path: '/Radar',
       name: 'Radar',
-      component: ()=> import('@/views/Radar/RadarViews.vue')
+      component: ()=> import('@/views/Radar/RadarViews.vue'),
+      meta: { layout: 'dashboard' }
     },
     {
       path: '/Embarcaciones',
       name: 'Embarcaciones',
-      component: ()=> import('@/views/Embarcaciones/EmbarcacionesViews.vue')
+      component: ()=> import('@/views/Embarcaciones/EmbarcacionesViews.vue'),
+      meta: { layout: 'dashboard' }
     },
     {
       path: '/Zonas_protegidas',
       name: 'Zonas_protegidas',
-      component: ()=> import('@/views/Zonas_Protegidas/ZonasRestringidasViews.vue')
+      component: ()=> import('@/views/Zonas_Protegidas/ZonasRestringidasViews.vue'),
+      meta: { layout: 'dashboard' }
     },
     {
       path: '/Alertas',
       name: 'Alertas',
-      component: ()=> import('@/views/Alertas/AlertasViews.vue')
+      component: ()=> import('@/views/Alertas/AlertasViews.vue'),
+      meta: { layout: 'dashboard' }
     },
     {
       path: '/Estadisticas',
       name: 'Estadisticas',
-      component: ()=> import('@/views/Estadisticas/EstadisticasViews.vue')
+      component: ()=> import('@/views/Estadisticas/EstadisticasViews.vue'),
+      meta: { layout: 'dashboard' }
     },
     {
       path: '/Reportes',
       name: 'Reportes',
-      component: ()=> import('@/views/Reportes/ReportesViews.vue')
+      component: ()=> import('@/views/Reportes/ReportesViews.vue'),
+      meta: { layout: 'dashboard' }
     },
     {
       path: '/Configuracion',
       name: 'Configuracion',
-      component: ()=> import('@/views/Configuracion/ConfiguracionViews.vue')
+      component: ()=> import('@/views/Configuracion/ConfiguracionViews.vue'),
+      meta: { layout: 'dashboard' }
     },
   ]
 })

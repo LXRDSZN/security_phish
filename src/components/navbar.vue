@@ -1,4 +1,11 @@
 <template>
+  <!-- Backdrop para mobile -->
+  <div 
+    v-if="isOpen" 
+    class="sidebar-backdrop" 
+    @click="toggleMenu"
+  ></div>
+
   <aside class="sidebar" :class="{ expanded: isOpen }">
 
     <!-- BOTÓN MENÚ -->
@@ -8,37 +15,37 @@
 
     <!-- MENÚ -->
     <nav class="menu">
-      <RouterLink to="/Dashboard" class="menu-item">
+      <RouterLink to="/Dashboard" class="menu-item" @click="closeMenuOnMobile">
         <span class="material-symbols-rounded">dashboard</span>
         <span class="text">Dashboard</span>
       </RouterLink>
 
-      <RouterLink to="/Radar" class="menu-item">
+      <RouterLink to="/Radar" class="menu-item" @click="closeMenuOnMobile">
         <span class="material-symbols-rounded">radar</span>
         <span class="text">Radar</span>
       </RouterLink>
 
-      <RouterLink to="/Embarcaciones" class="menu-item">
+      <RouterLink to="/Embarcaciones" class="menu-item" @click="closeMenuOnMobile">
         <span class="material-symbols-rounded">directions_boat</span>
         <span class="text">Embarcaciones</span>
       </RouterLink>
 
-      <RouterLink to="/Zonas_protegidas" class="menu-item">
+      <RouterLink to="/Zonas_protegidas" class="menu-item" @click="closeMenuOnMobile">
         <span class="material-symbols-rounded">map</span>
         <span class="text">Zonas protegidas</span>
       </RouterLink>
 
-      <RouterLink to="/Alertas" class="menu-item alert">
+      <RouterLink to="/Alertas" class="menu-item alert" @click="closeMenuOnMobile">
         <span class="material-symbols-rounded">warning</span>
         <span class="text">Alertas</span>
       </RouterLink>
 
-      <RouterLink to="/Estadisticas" class="menu-item">
+      <RouterLink to="/Estadisticas" class="menu-item" @click="closeMenuOnMobile">
         <span class="material-symbols-rounded">bar_chart</span>
         <span class="text">Estadísticas</span>
       </RouterLink>
 
-      <RouterLink to="/Reportes" class="menu-item">
+      <RouterLink to="/Reportes" class="menu-item" @click="closeMenuOnMobile">
         <span class="material-symbols-rounded">description</span>
         <span class="text">Reportes</span>
       </RouterLink>
@@ -46,7 +53,7 @@
 
     <!-- CONFIGURACIÓN + SALIR -->
     <div class="menu-bottom">
-      <RouterLink to="/Configuracion" class="menu-item">
+      <RouterLink to="/Configuracion" class="menu-item" @click="closeMenuOnMobile">
         <span class="material-symbols-rounded">settings</span>
         <span class="text">Configuración</span>
       </RouterLink>
@@ -89,6 +96,19 @@ const isOpen = ref(false);
 
 const toggleMenu = () => {
   isOpen.value = !isOpen.value;
+  
+  // Bloquear scroll del body en mobile cuando el menú está abierto
+  if (window.innerWidth <= 768) {
+    document.body.style.overflow = isOpen.value ? 'hidden' : '';
+  }
+};
+
+// Cerrar menú en mobile al hacer click en un link
+const closeMenuOnMobile = () => {
+  if (window.innerWidth <= 768) {
+    isOpen.value = false;
+    document.body.style.overflow = '';
+  }
 };
 
 // Emitir evento cuando cambie el estado del sidebar
@@ -105,6 +125,26 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ===== BACKDROP MOBILE ===== */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 90;
+  backdrop-filter: blur(2px);
+}
+
+@media (max-width: 768px) {
+  .sidebar-backdrop {
+    display: block;
+  }
+}
+
+/* ===== SIDEBAR ===== */
 .sidebar {
   position: fixed;
   top: 0;
@@ -130,6 +170,23 @@ onMounted(() => {
 
 .sidebar.expanded {
   width: 240px;
+}
+
+/* RESPONSIVE MOBILE */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(0);
+  }
+  
+  .sidebar:not(.expanded) {
+    /* En mobile, mantener el sidebar visible pero colapsado */
+    width: 72px;
+  }
+  
+  .sidebar.expanded {
+    width: 280px; /* Un poco más ancho en mobile */
+    box-shadow: 4px 0 30px rgba(0,0,0,0.4);
+  }
 }
 
 /* BOTÓN */
