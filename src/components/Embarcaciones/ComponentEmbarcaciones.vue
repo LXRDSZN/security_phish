@@ -134,73 +134,67 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
+import { searchVessels, getVesselById } from '@/backend/services/api.js';
 
 const showModal = ref(false);
 const searchQuery = ref('');
 const filterStatus = ref('all');
+const loading = ref(false);
+const boats = ref([]);
+const totalResults = ref(0);
 
-const boats = ref([
-  {
-    id: 1,
-    name: 'Pescador del Mar',
-    registration: 'PE-001',
-    captain: 'Juan Pérez',
-    type: 'Artesanal',
-    length: 12,
-    status: 'active',
-    lastLocation: 'Zona A - Sector 3',
-    lastReport: 'Hace 15 min'
-  },
-  {
-    id: 2,
-    name: 'Océano Azul',
-    registration: 'PE-003',
-    captain: 'María López',
-    type: 'Industrial',
-    length: 25,
-    status: 'active',
-    lastLocation: 'Zona B - Sector 1',
-    lastReport: 'Hace 30 min'
-  },
-  {
-    id: 3,
-    name: 'Viento Norte',
-    registration: 'PE-007',
-    captain: 'Carlos Ruiz',
-    type: 'Artesanal',
-    length: 10,
-    status: 'maintenance',
-    lastLocation: 'Puerto Principal',
-    lastReport: 'Hace 2 días'
-  },
-  {
-    id: 4,
-    name: 'Estrella Marina',
-    registration: 'PE-012',
-    captain: 'Ana Torres',
-    type: 'Deportiva',
-    length: 8,
-    status: 'inactive',
-    lastLocation: 'Marina Sur',
-    lastReport: 'Hace 5 horas'
+// Buscar embarcaciones en GFW
+const performSearch = async () => {
+  if (!searchQuery.value || searchQuery.value.length < 2) {
+    boats.value = [];
+    return;
   }
-]);
+
+  try {
+    loading.value = true;
+    const result = await searchVessels(searchQuery.value, 20);
+    
+    // Normalizar datos de GFW al formato del componente
+    boats.value = result.vessels.map(vessel => ({
+      id: vessel.id,
+      name: vessel.name || 'Sin nombre',
+      registration: vessel.mmsi || vessel.imo || vessel.callsign || 'N/A',
+      captain: 'N/A', // GFW no provee esta info
+      type: vessel.type || 'Desconocido',
+      length: vessel.length || 0,
+      status: 'active', // Por defecto activo si está en GFW
+      lastLocation: vessel.flag ? `Bandera: ${vessel.flag}` : 'Desconocida',
+      lastReport: 'Tiempo real'
+    }));
+    
+    totalResults.value = result.total || 0;
+  } catch (error) {
+    console.error('Error buscando embarcaciones:', error);
+    boats.value = [];
+  } finally {
+    loading.value = false;
+  }
+};
+
+// Watch para búsqueda en tiempo real (con debounce)
+let searchTimeout;
+watch(searchQuery, (newValue) => {
+  clearTimeout(searchTimeout);
+  if (newValue && newValue.length >= 2) {
+    searchTimeout = setTimeout(() => {
+      performSearch();
+    }, 500); // Esperar 500ms después de que el usuario deja de escribir
+  } else {
+    boats.value = [];
+  }
+});
 
 const filteredBoats = computed(() => {
   let filtered = boats.value;
   
   if (filterStatus.value !== 'all') {
     filtered = filtered.filter(boat => boat.status === filterStatus.value);
-  }
-  
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    filtered = filtered.filter(boat => 
-      boat.name.toLowerCase().includes(query) ||
-      boat.registration.toLowerCase().includes(query) ||
-      boat.captain.toLowerCase().includes(query)
-    );
   }
   
   return filtered;
@@ -215,8 +209,14 @@ const getStatusLabel = (status) => {
   return labels[status] || status;
 };
 
-const viewDetails = (id) => {
-  console.log('Ver detalles de embarcación:', id);
+const viewDetails = async (id) => {
+  try {
+    const vessel = await getVesselById(id);
+    console.log('Detalles de embarcación:', vessel);
+    // Aquí podrías abrir un modal con los detalles
+  } catch (error) {
+    console.error('Error obteniendo detalles:', error);
+  }
 };
 </script>
 

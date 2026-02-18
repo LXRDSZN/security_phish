@@ -94,7 +94,7 @@
                 <span class="material-symbols-rounded">location_searching</span>
                 Ubicar
               </button>
-              <button class="btn-action success">
+              <button class="btn-action success" @click="handleResolveAlert(alert.id)">
                 <span class="material-symbols-rounded">check</span>
                 Resolver
               </button>
@@ -132,84 +132,62 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { getAlerts, resolveAlert } from '@/backend/services/api.js';
 
 const filter = ref('all');
+const alerts = ref([]);
+const loading = ref(false);
 
-const alerts = ref([
-  {
-    id: 1,
-    priority: 'high',
-    icon: 'dangerous',
-    title: 'Embarcación en Zona Prohibida',
-    description: 'La embarcación PE-003 ha ingresado a la zona protegida norte sin autorización. Se requiere intervención inmediata.',
-    time: 'Hace 5 min',
-    location: 'Zona Norte - Sector A3',
-    boat: 'PE-003',
-    reporter: 'Sistema Automático'
-  },
-  {
-    id: 2,
-    priority: 'high',
-    icon: 'report',
-    title: 'Actividad Sospechosa Detectada',
-    description: 'Movimiento irregular detectado en embarcación PE-012. Posible pesca ilegal en curso.',
-    time: 'Hace 15 min',
-    location: 'Zona Este - Sector B2',
-    boat: 'PE-012',
-    reporter: 'Radar Central'
-  },
-  {
-    id: 3,
-    priority: 'medium',
-    icon: 'warning',
-    title: 'Cuota de Pesca Excedida',
-    description: 'La embarcación PE-007 ha superado la cuota diaria permitida de captura.',
-    time: 'Hace 1 hora',
-    location: 'Zona Sur - Sector C1',
-    boat: 'PE-007',
-    reporter: 'Inspector de Campo'
-  },
-  {
-    id: 4,
-    priority: 'medium',
-    icon: 'speed',
-    title: 'Velocidad Excesiva Cerca de Zona Protegida',
-    description: 'Embarcación navegando a velocidad superior a lo permitido cerca de zona de reproducción.',
-    time: 'Hace 2 horas',
-    location: 'Zona Oeste - Límite',
-    boat: 'PE-015',
-    reporter: 'Sistema Automático'
-  },
-  {
-    id: 5,
-    priority: 'low',
-    icon: 'info',
-    title: 'Embarcación Sin Reporte en 24h',
-    description: 'La embarcación PE-001 no ha enviado reporte de actividades en las últimas 24 horas.',
-    time: 'Hace 3 horas',
-    location: 'Última posición: Zona Central',
-    boat: 'PE-001',
-    reporter: 'Sistema de Monitoreo'
-  },
-  {
-    id: 6,
-    priority: 'low',
-    icon: 'settings',
-    title: 'Mantenimiento de Sensor Requerido',
-    description: 'El sensor GPS de la embarcación PE-009 está presentando lecturas inconsistentes.',
-    time: 'Hace 5 horas',
-    location: 'Puerto Principal',
-    boat: 'PE-009',
-    reporter: 'Sistema de Diagnóstico'
+// Cargar alertas desde GFW
+const loadAlerts = async () => {
+  try {
+    loading.value = true;
+    const filters = { status: 'active' };
+    
+    if (filter.value !== 'all') {
+      filters.priority = filter.value;
+    }
+    
+    const alertsData = await getAlerts(filters);
+    alerts.value = alertsData.map(alert => ({
+      id: alert.id,
+      priority: alert.priority,
+      icon: alert.icon || 'warning',
+      title: alert.title,
+      description: alert.description,
+      time: alert.time,
+      location: alert.location,
+      boat: alert.boat,
+      reporter: alert.reporter,
+      status: alert.status
+    }));
+  } catch (error) {
+    console.error('Error cargando alertas:', error);
+    alerts.value = [];
+  } finally {
+    loading.value = false;
   }
-]);
+};
+
+// Resolver una alerta
+const handleResolveAlert = async (alertId) => {
+  try {
+    await resolveAlert(alertId, 'Usuario del Sistema');
+    // Recargar alertas después de resolver
+    await loadAlerts();
+    alert('Alerta resuelta exitosamente');
+  } catch (error) {
+    console.error('Error resolviendo alerta:', error);
+    alert('Error al resolver la alerta');
+  }
+};
 
 const alertCounts = computed(() => ({
   high: alerts.value.filter(a => a.priority === 'high').length,
   medium: alerts.value.filter(a => a.priority === 'medium').length,
   low: alerts.value.filter(a => a.priority === 'low').length,
-  resolved: 12
+  resolved: 0 // Este valor vendría de una consulta separada
 }));
 
 const filteredAlerts = computed(() => {
@@ -225,6 +203,19 @@ const getPriorityLabel = (priority) => {
   };
   return labels[priority] || priority;
 };
+
+// Cargar alertas al montar el componente
+onMounted(() => {
+  loadAlerts();
+  
+  // Actualizar alertas cada 60 segundos
+  setInterval(loadAlerts, 60000);
+});
+
+// Recargar cuando cambia el filtro
+watch(() => filter.value, () => {
+  loadAlerts();
+});
 </script>
 
 <style scoped>

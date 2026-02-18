@@ -99,43 +99,57 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { getDashboardSummary, getRecentActivity, getAlerts } from '@/backend/services/api.js';
 
 const currentDate = ref('');
-const totalEmbarcaciones = ref(24);
-const zonasProtegidas = ref(8);
-const alertasActivas = ref(3);
-const deteccionesHoy = ref(47);
+const totalEmbarcaciones = ref(0);
+const zonasProtegidas = ref(0);
+const alertasActivas = ref(0);
+const deteccionesHoy = ref(0);
+const loading = ref(true);
 
-const recentActivities = ref([
-  { id: 1, icon: 'directions_boat', title: 'Embarcación PE-001 ingresó a zona', time: 'Hace 5 min', type: 'info' },
-  { id: 2, icon: 'warning', title: 'Alerta: Zona restringida violada', time: 'Hace 12 min', type: 'warning' },
-  { id: 3, icon: 'check_circle', title: 'Reporte de pesca enviado', time: 'Hace 1 hora', type: 'success' },
-  { id: 4, icon: 'radar', title: 'Nueva detección en radar', time: 'Hace 2 horas', type: 'info' }
-]);
+const recentActivities = ref([]);
+const alerts = ref([]);
 
-const alerts = ref([
-  { 
-    id: 1, 
-    severity: 'high', 
-    title: 'Embarcación en zona restringida', 
-    description: 'PE-003 detectada en zona protegida del norte',
-    time: '10:45 AM'
-  },
-  { 
-    id: 2, 
-    severity: 'medium', 
-    title: 'Cuota de pesca alcanzada', 
-    description: 'Embarcación PE-007 alcanzó límite diario',
-    time: '09:30 AM'
-  },
-  { 
-    id: 3, 
-    severity: 'low', 
-    title: 'Mantenimiento programado', 
-    description: 'Sistema de radar en mantenimiento preventivo',
-    time: '08:00 AM'
+// Cargar datos del Dashboard desde GFW
+const loadDashboardData = async () => {
+  try {
+    loading.value = true;
+    
+    // Obtener KPIs del Dashboard
+    const summary = await getDashboardSummary();
+    totalEmbarcaciones.value = summary.activeVessels || 0;
+    zonasProtegidas.value = summary.protectedZones || 0;
+    alertasActivas.value = summary.activeAlerts || 0;
+    deteccionesHoy.value = summary.detectionsToday || 0;
+
+    // Obtener actividad reciente
+    const activity = await getRecentActivity();
+    recentActivities.value = activity.slice(0, 5).map(act => ({
+      id: act.id,
+      icon: act.icon || 'info',
+      title: act.title,
+      time: act.time,
+      type: act.type || 'info'
+    }));
+
+    // Obtener alertas activas (solo las primeras 3)
+    const alertsData = await getAlerts({ status: 'active', limit: 3 });
+    alerts.value = alertsData.slice(0, 3).map(alert => ({
+      id: alert.id,
+      severity: alert.priority,
+      title: alert.title,
+      description: alert.description,
+      time: alert.time
+    }));
+
+  } catch (error) {
+    console.error('Error cargando datos del dashboard:', error);
+    // Mantener valores por defecto en caso de error
+  } finally {
+    loading.value = false;
   }
-]);
+};
 
 onMounted(() => {
   const now = new Date();
@@ -145,6 +159,12 @@ onMounted(() => {
     month: 'long', 
     day: 'numeric' 
   });
+  
+  // Cargar datos de GFW
+  loadDashboardData();
+  
+  // Actualizar cada 30 segundos
+  setInterval(loadDashboardData, 30000);
 });
 </script>
 

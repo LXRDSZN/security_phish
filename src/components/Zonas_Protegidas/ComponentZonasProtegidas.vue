@@ -82,54 +82,42 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { getAllZones, createZone, updateZone, deleteZone } from '@/backend/services/api.js';
 
-const zones = ref([
-  {
-    id: 1,
-    name: 'Zona Protegida Norte',
-    level: 'high',
-    levelLabel: 'Restricción Alta',
-    icon: 'dangerous',
-    area: 125.5,
-    boats: 0,
-    created: '15/01/2024',
-    description: 'Zona de reproducción de especies protegidas. Prohibido el ingreso de cualquier embarcación.'
-  },
-  {
-    id: 2,
-    name: 'Reserva Marina Este',
-    level: 'medium',
-    levelLabel: 'Restricción Media',
-    icon: 'warning',
-    area: 88.3,
-    boats: 2,
-    created: '20/02/2024',
-    description: 'Zona de pesca regulada. Se requiere permiso especial para acceso.'
-  },
-  {
-    id: 3,
-    name: 'Área de Conservación Sur',
-    level: 'low',
-    levelLabel: 'Monitoreo',
-    icon: 'visibility',
-    area: 200.0,
-    boats: 8,
-    created: '10/03/2024',
-    description: 'Zona bajo monitoreo constante. Pesca permitida con restricciones.'
-  },
-  {
-    id: 4,
-    name: 'Santuario Marino Oeste',
-    level: 'high',
-    levelLabel: 'Restricción Alta',
-    icon: 'dangerous',
-    area: 150.0,
-    boats: 0,
-    created: '05/12/2023',
-    description: 'Santuario de vida marina. Acceso prohibido sin autorización especial.'
+const zones = ref([]);
+const loading = ref(false);
+
+// Cargar zonas desde la API
+const loadZones = async () => {
+  try {
+    loading.value = true;
+    const zonesData = await getAllZones(true); // Solo activas
+    
+    zones.value = zonesData.map(zone => ({
+      id: zone.id,
+      name: zone.name,
+      level: zone.level,
+      levelLabel: zone.levelLabel,
+      icon: zone.icon,
+      area: zone.area,
+      boats: zone.boats,
+      created: zone.created,
+      description: zone.description,
+      geometry: zone.geometry
+    }));
+  } catch (error) {
+    console.error('Error cargando zonas:', error);
+    zones.value = [];
+  } finally {
+    loading.value = false;
   }
-]);
+};
+
+// Cargar zonas al montar
+onMounted(() => {
+  loadZones();
+});
 </script>
 
 <style scoped>
