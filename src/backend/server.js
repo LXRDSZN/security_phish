@@ -10,6 +10,9 @@ import vesselsRoutes from './routes/vessels.routes.js';
 import positionsRoutes from './routes/positions.routes.js';
 import zonesRoutes from './routes/zones.routes.js';
 import alertsRoutes from './routes/alerts.routes.js';
+import statisticsRoutes from './routes/statistics.routes.js';
+import reportsRoutes from './routes/reports.routes.js';
+import { startAlertScheduler } from './scheduler.js';
 
 const app = express();
 const port = 5000;
@@ -38,9 +41,16 @@ app.use('/api/vessels', vesselsRoutes);
 app.use('/api/positions', positionsRoutes);
 app.use('/api/zones', zonesRoutes);
 app.use('/api/alerts', alertsRoutes);
+app.use('/api/statistics', statisticsRoutes);
+app.use('/api/reports', reportsRoutes);
 
 // Inicia el servidor
 app.listen(port, () => {
   console.log(`✅ Servidor corriendo en el puerto ${port}`);
+  
+  // 🤖 Iniciar sistema automático de alertas
+  // Ejecuta análisis cada 30 minutos por defecto
+  // Puedes cambiar el intervalo: startAlertScheduler(60) para cada hora
+  startAlertScheduler(30);
 });
  

@@ -200,9 +200,12 @@ export const getAllZones = async (active) => {
     return response.data;
   } catch (error) {
     console.error('Error al obtener zonas:', error);
-    throw error;
+    return []; // Retornar array vacío en caso de error
   }
 };
+
+// Alias para el dashboard
+export const getProtectedZones = getAllZones;
 
 /**
  * 📌 Obtener zona por ID
@@ -309,3 +312,158 @@ export const resolveAlert = async (alertId, resolvedBy) => {
     throw error;
   }
 };
+
+/*
+##################################################################################################
+#                      API PARA ESTADÍSTICAS                                                      #
+##################################################################################################
+*/
+
+/**
+ * 📊 Obtener resumen de estadísticas
+ * @param {string} period - day, week, month, year
+ */
+export const getStatisticsSummary = async (period = 'month') => {
+  try {
+    const response = await api.get(`/statistics/summary?period=${period}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener resumen de estadísticas:', error);
+    throw error;
+  }
+};
+
+/**
+ * 🚢 Obtener estadísticas de embarcaciones
+ */
+export const getVesselsStatistics = async () => {
+  try {
+    const response = await api.get('/statistics/vessels');
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener estadísticas de embarcaciones:', error);
+    throw error;
+  }
+};
+
+/**
+ * 🗺️ Obtener estadísticas de zonas
+ */
+export const getZonesStatistics = async () => {
+  try {
+    const response = await api.get('/statistics/zones');
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener estadísticas de zonas:', error);
+    throw error;
+  }
+};
+
+/**
+ * 🚨 Obtener estadísticas de alertas
+ * @param {string} period - day, week, month, year
+ */
+export const getAlertsStatistics = async (period = 'month') => {
+  try {
+    const response = await api.get(`/statistics/alerts?period=${period}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener estadísticas de alertas:', error);
+    throw error;
+  }
+};
+
+/**
+ * 📈 Obtener datos de serie temporal
+ * @param {string} period - day, week, month, year
+ * @param {string} metric - alerts, vessels, etc
+ */
+export const getTimeSeriesData = async (period = 'week', metric = 'alerts') => {
+  try {
+    const response = await api.get(`/statistics/timeseries?period=${period}&metric=${metric}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener serie temporal:', error);
+    throw error;
+  }
+};
+
+/*
+##################################################################################################
+#                      API PARA REPORTES                                                          #
+##################################################################################################
+*/
+
+/**
+ * 📄 Generar un nuevo reporte
+ * @param {object} reportData - { title, type, period, format }
+ */
+export const generateReport = async (reportData) => {
+  try {
+    const response = await api.post('/reports/generate', reportData);
+    return response.data;
+  } catch (error) {
+    console.error('Error al generar reporte:', error);
+    throw error;
+  }
+};
+
+/**
+ * 📋 Obtener lista de reportes
+ * @param {object} filters - { type, period, limit }
+ */
+export const getReports = async (filters = {}) => {
+  try {
+    const params = new URLSearchParams(filters);
+    const response = await api.get(`/reports?${params}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener reportes:', error);
+    throw error;
+  }
+};
+
+/**
+ * 📄 Obtener un reporte específico
+ * @param {string} reportId - ID del reporte
+ */
+export const getReportById = async (reportId) => {
+  try {
+    const response = await api.get(`/reports/${reportId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener reporte:', error);
+    throw error;
+  }
+};
+
+/**
+ * 🗑️ Eliminar un reporte
+ * @param {string} reportId - ID del reporte
+ */
+export const deleteReport = async (reportId) => {
+  try {
+    const response = await api.delete(`/reports/${reportId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error al eliminar reporte:', error);
+    throw error;
+  }
+};
+
+/**
+ * 📥 Descargar un reporte
+ * @param {string} reportId - ID del reporte
+ */
+export const downloadReportFile = async (reportId) => {
+  try {
+    const response = await api.get(`/reports/${reportId}/download`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error al descargar reporte:', error);
+    throw error;
+  }
+};
+

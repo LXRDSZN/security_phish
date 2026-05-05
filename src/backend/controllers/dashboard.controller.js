@@ -23,8 +23,12 @@ export const getDashboardSummary = async (req, res) => {
     // 3. Contar alertas activas
     const activeAlerts = await Alert.countDocuments({ status: 'active' });
 
-    // 4. Detecciones hoy (simulado)
-    const detectionsToday = Math.floor(Math.random() * 50) + 20;
+    // 4. Detecciones hoy (alertas creadas en las últimas 24 horas)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const detectionsToday = await Alert.countDocuments({
+      createdAt: { $gte: today }
+    });
 
     res.json({
       activeVessels,
@@ -49,8 +53,11 @@ export const getRecentActivity = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
 
-    // Obtener alertas recientes (últimas 24h)
-    const recentAlerts = await Alert.find({ status: 'active' })
+    // Obtener alertas recientes (últimas 48h)
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const recentAlerts = await Alert.find({ 
+      createdAt: { $gte: twoDaysAgo }
+    })
       .sort({ createdAt: -1 })
       .limit(limit);
 
@@ -88,6 +95,32 @@ export const getRecentActivity = async (req, res) => {
         type,
       };
     });
+
+    // Si no hay alertas, agregar actividad genérica del sistema
+    if (activities.length === 0) {
+      const zonesCount = await Zone.countDocuments();
+      activities.push({
+        id: 'system-1',
+        icon: 'check_circle',
+        title: `Sistema iniciado - ${zonesCount} zonas monitoreadas`,
+        time: 'Hace 1 hora',
+        type: 'success'
+      });
+      activities.push({
+        id: 'system-2',
+        icon: 'radar',
+        title: 'Monitoreo activo de embarcaciones',
+        time: 'Hace 2 horas',
+        type: 'info'
+      });
+      activities.push({
+        id: 'system-3',
+        icon: 'shield',
+        title: 'Todas las zonas protegidas en estado normal',
+        time: 'Hace 3 horas',
+        type: 'success'
+      });
+    }
 
     res.json(activities);
   } catch (error) {

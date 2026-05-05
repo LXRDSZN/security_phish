@@ -28,25 +28,27 @@
       </h2>
 
       <div class="history-filters">
-        <select v-model="filterType" class="filter-select">
+        <select v-model="filterType" @change="loadReports" class="filter-select">
           <option value="all">Todos los tipos</option>
-          <option value="catch">Captura</option>
-          <option value="activity">Actividad</option>
+          <option value="summary">Resumen General</option>
+          <option value="alerts">Alertas</option>
+          <option value="vessels">Embarcaciones</option>
+          <option value="zones">Zonas Protegidas</option>
           <option value="compliance">Cumplimiento</option>
-          <option value="incident">Incidentes</option>
         </select>
-        <select v-model="filterPeriod" class="filter-select">
-          <option value="week">Esta semana</option>
-          <option value="month">Este mes</option>
-          <option value="year">Este año</option>
-          <option value="all">Todo</option>
+        <select v-model="filterPeriod" @change="loadReports" class="filter-select">
+          <option value="all">Todos los períodos</option>
+          <option value="day">Último día</option>
+          <option value="week">Última semana</option>
+          <option value="month">Último mes</option>
+          <option value="year">Último año</option>
         </select>
       </div>
 
       <div class="reports-list">
         <div v-for="report in filteredReports" :key="report.id" class="report-item">
-          <div class="report-icon" :class="report.type">
-            <span class="material-symbols-rounded">{{ report.icon }}</span>
+           <div class="report-icon" :class="report.type">
+            <span class="material-symbols-rounded">{{ getTypeIcon(report.type) }}</span>
           </div>
           
           <div class="report-info">
@@ -54,35 +56,32 @@
             <div class="report-meta">
               <span>
                 <span class="material-symbols-rounded">person</span>
-                {{ report.author }}
+                {{ report.generatedBy }}
               </span>
               <span>
                 <span class="material-symbols-rounded">calendar_today</span>
-                {{ report.date }}
+                {{ new Date(report.generatedAt).toLocaleDateString('es-ES') }}
               </span>
               <span>
                 <span class="material-symbols-rounded">schedule</span>
-                {{ report.time }}
+                {{ new Date(report.generatedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) }}
               </span>
             </div>
           </div>
 
           <div class="report-details">
-            <span class="report-size">{{ report.size }}</span>
-            <span class="report-format">{{ report.format }}</span>
+            <span class="report-size">{{ report.fileSize }}</span>
+            <span class="report-format">{{ report.format.toUpperCase() }}</span>
           </div>
 
           <div class="report-actions">
-            <button class="action-btn">
+            <button class="action-btn" @click="viewReport(report.id)" title="Ver reporte">
               <span class="material-symbols-rounded">visibility</span>
             </button>
-            <button class="action-btn">
+            <button class="action-btn" @click="downloadReport(report.id)" title="Descargar">
               <span class="material-symbols-rounded">download</span>
             </button>
-            <button class="action-btn">
-              <span class="material-symbols-rounded">share</span>
-            </button>
-            <button class="action-btn danger">
+            <button class="action-btn danger" @click="deleteReport(report.id)" title="Eliminar">
               <span class="material-symbols-rounded">delete</span>
             </button>
           </div>
@@ -99,68 +98,77 @@
           </button>
         </div>
         
-        <form class="modal-form" @submit.prevent="generateReport">
+        <form class="modal-form" @submit.prevent="generateReportHandler">
           <div class="form-group">
-            <label>Tipo de Reporte</label>
-            <select required>
+            <label>Tipo de Reporte *</label>
+            <select v-model="newReport.type" required>
               <option value="">Seleccionar tipo...</option>
-              <option value="catch">Reporte de Captura</option>
-              <option value="activity">Reporte de Actividad</option>
+              <option value="summary">Reporte Resumen General</option>
+              <option value="alerts">Reporte de Alertas</option>
+              <option value="vessels">Reporte de Embarcaciones</option>
+              <option value="zones">Reporte de Zonas Protegidas</option>
               <option value="compliance">Reporte de Cumplimiento</option>
-              <option value="incident">Reporte de Incidentes</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label>Título del Reporte</label>
-            <input type="text" placeholder="Ej: Reporte Mensual de Capturas" required>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Fecha Inicio</label>
-              <input type="date" required>
-            </div>
-            <div class="form-group">
-              <label>Fecha Fin</label>
-              <input type="date" required>
-            </div>
+            <label>Título del Reporte *</label>
+            <input 
+              v-model="newReport.title"
+              type="text" 
+              placeholder="Ej: Reporte Mensual de Alertas" 
+              required>
           </div>
 
           <div class="form-group">
-            <label>Embarcaciones</label>
-            <select multiple>
-              <option>PE-001 - Pescador del Mar</option>
-              <option>PE-003 - Océano Azul</option>
-              <option>PE-007 - Viento Norte</option>
-              <option>PE-012 - Estrella Marina</option>
+            <label>Período de Análisis *</label>
+            <select v-model="newReport.period" required>
+              <option value="day">Último Día</option>
+              <option value="week">Última Semana</option>
+              <option value="month">Último Mes</option>
+              <option value="year">Último Año</option>
             </select>
+            <small class="form-hint">
+              📅 Fecha de emisión: {{ getCurrentDate() }}
+            </small>
           </div>
 
           <div class="form-group">
-            <label>Formato de Exportación</label>
+            <label>Formato de Exportación *</label>
             <div class="format-options">
               <label class="format-option">
-                <input type="radio" name="format" value="pdf" checked>
-                <span>PDF</span>
+                <input type="radio" v-model="newReport.format" value="json" checked>
+                <span>
+                  <span class="material-symbols-rounded">code</span>
+                  JSON
+                </span>
               </label>
               <label class="format-option">
-                <input type="radio" name="format" value="excel">
-                <span>Excel</span>
-              </label>
-              <label class="format-option">
-                <input type="radio" name="format" value="csv">
-                <span>CSV</span>
+                <input type="radio" v-model="newReport.format" value="csv">
+                <span>
+                  <span class="material-symbols-rounded">table_chart</span>
+                  CSV
+                </span>
               </label>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label>Descripción (opcional)</label>
+            <textarea 
+              v-model="newReport.description"
+              placeholder="Agregue notas o comentarios sobre este reporte..."
+              rows="3"
+            ></textarea>
           </div>
 
           <div class="form-actions">
-            <button type="button" class="btn-cancel" @click="showModal = false">
+            <button type="button" class="btn-cancel" @click="closeModal">
               Cancelar
             </button>
-            <button type="submit" class="btn-generate-modal">
-              Generar Reporte
+            <button type="submit" class="btn-generate-modal" :disabled="generating">
+              <span v-if="generating">Generando...</span>
+              <span v-else>Generar Reporte</span>
             </button>
           </div>
         </form>
@@ -170,109 +178,277 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import {
+  generateReport as generateReportAPI,
+  getReports as getReportsAPI,
+  getReportById,
+  deleteReport as deleteReportAPI,
+  downloadReportFile
+} from '@/backend/services/api.js';
 
 const showModal = ref(false);
 const filterType = ref('all');
-const filterPeriod = ref('month');
+const filterPeriod = ref('all');
+const generating = ref(false);
+const loading = ref(false);
+
+// Nuevo reporte
+const newReport = ref({
+  title: '',
+  type: '',
+  period: 'month',
+  format: 'json',
+  description: ''
+});
+
+// Lista de reportes generados
+const reports = ref([]);
 
 const reportTypes = ref([
   {
-    id: 'catch',
-    icon: 'water',
-    title: 'Reporte de Captura',
-    description: 'Genera estadísticas detalladas sobre las capturas realizadas por embarcación y zona.',
+    id: 'summary',
+    icon: 'summarize',
+    title: 'Reporte Resumen General',
+    description: 'Resumen completo del sistema: embarcaciones, zonas, alertas y cumplimiento.',
     color: 'blue'
   },
   {
-    id: 'activity',
-    icon: 'show_chart',
-    title: 'Reporte de Actividad',
-    description: 'Analiza la actividad operativa de las embarcaciones y tiempo en faena.',
+    id: 'alerts',
+    icon: 'notification_important',
+    title: 'Reporte de Alertas',
+    description: 'Análisis detallado de alertas generadas, prioridades y resoluciones.',
+    color: 'red'
+  },
+  {
+    id: 'vessels',
+    icon: 'directions_boat',
+    title: 'Reporte de Embarcaciones',
+    description: 'Estadísticas de embarcaciones monitoreadas y su actividad.',
     color: 'green'
+  },
+  {
+    id: 'zones',
+    icon: 'shield',
+    title: 'Reporte de Zonas Protegidas',
+    description: 'Estado y actividad en las zonas marinas protegidas.',
+    color: 'purple'
   },
   {
     id: 'compliance',
     icon: 'verified',
     title: 'Reporte de Cumplimiento',
-    description: 'Evalúa el cumplimiento de normativas y regulaciones pesqueras.',
-    color: 'purple'
-  },
-  {
-    id: 'incident',
-    icon: 'report',
-    title: 'Reporte de Incidentes',
-    description: 'Documenta alertas, violaciones y eventos relevantes del período.',
-    color: 'red'
+    description: 'Evaluación del cumplimiento normativo y tasas de resolución.',
+    color: 'yellow'
   }
 ]);
 
-const reports = ref([
-  {
-    id: 1,
-    type: 'catch',
-    icon: 'water',
-    title: 'Reporte Mensual de Capturas - Febrero 2024',
-    author: 'Juan Pérez',
-    date: '15/02/2024',
-    time: '14:30',
-    size: '2.4 MB',
-    format: 'PDF'
-  },
-  {
-    id: 2,
-    type: 'activity',
-    icon: 'show_chart',
-    title: 'Análisis de Actividad Semanal',
-    author: 'María López',
-    date: '14/02/2024',
-    time: '10:15',
-    size: '1.8 MB',
-    format: 'Excel'
-  },
-  {
-    id: 3,
-    type: 'compliance',
-    icon: 'verified',
-    title: 'Evaluación de Cumplimiento Q1',
-    author: 'Carlos Ruiz',
-    date: '12/02/2024',
-    time: '16:45',
-    size: '3.2 MB',
-    format: 'PDF'
-  },
-  {
-    id: 4,
-    type: 'incident',
-    icon: 'report',
-    title: 'Reporte de Incidentes - Enero',
-    author: 'Ana Torres',
-    date: '10/02/2024',
-    time: '09:20',
-    size: '1.5 MB',
-    format: 'PDF'
+// Cargar reportes
+const loadReports = async () => {
+  try {
+    loading.value = true;
+    const response = await getReportsAPI({
+      type: filterType.value,
+      period: filterPeriod.value
+    });
+    reports.value = response.reports || [];
+  } catch (error) {
+    console.error('Error cargando reportes:', error);
+  } finally {
+    loading.value = false;
   }
-]);
+};
 
+// Filtrar reportes
 const filteredReports = computed(() => {
-  let filtered = reports.value;
-  
-  if (filterType.value !== 'all') {
-    filtered = filtered.filter(r => r.type === filterType.value);
-  }
-  
-  return filtered;
+  return reports.value.filter(report => {
+    const matchType = filterType.value === 'all' || report.type === filterType.value;
+    const matchPeriod = filterPeriod.value === 'all' || report.period === filterPeriod.value;
+    return matchType && matchPeriod;
+  });
 });
 
+// Seleccionar tipo de reporte
 const selectType = (typeId) => {
-  console.log('Generar reporte tipo:', typeId);
-  showModal.value = true;
+  const type = reportTypes.value.find(t => t.id === typeId);
+  if (type) {
+    newReport.value.type = typeId;
+    newReport.value.title = type.title;
+    showModal.value = true;
+  }
 };
 
-const generateReport = () => {
-  console.log('Generando reporte...');
-  showModal.value = false;
+// Generar reporte
+const generateReportHandler = async () => {
+  try {
+    generating.value = true;
+
+    const response = await generateReportAPI({
+      title: newReport.value.title,
+      type: newReport.value.type,
+      period: newReport.value.period,
+      format: newReport.value.format
+    });
+
+    // Agregar a la lista
+    await loadReports();
+
+    // Descargar automáticamente
+    downloadGeneratedReport(response.data, response.report);
+
+    alert('✅ Reporte generado y descargado exitosamente');
+    closeModal();
+
+  } catch (error) {
+    console.error('Error generando reporte:', error);
+    alert('❌ Error al generar el reporte');
+  } finally {
+    generating.value = false;
+  }
 };
+
+// Descargar reporte generado
+const downloadGeneratedReport = (data, reportInfo) => {
+  const filename = `${reportInfo.title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.${reportInfo.format}`;
+  
+  let content, mimeType;
+  
+  if (reportInfo.format === 'json') {
+    content = JSON.stringify(data, null, 2);
+    mimeType = 'application/json';
+  } else if (reportInfo.format === 'csv') {
+    content = convertToCSV(data);
+    mimeType = 'text/csv';
+  }
+  
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+// Ver reporte
+const viewReport = async (reportId) => {
+  try {
+    const report = await getReportById(reportId);
+    console.log('Reporte:', report);
+    
+    // Mostrar en modal o nueva ventana
+    const dataStr = JSON.stringify(report.data, null, 2);
+    const newWindow = window.open('', '_blank');
+    newWindow.document.write(`
+      <html>
+        <head>
+          <title>${report.title}</title>
+          <style>
+            body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+            pre { background: #252526; padding: 20px; border-radius: 8px; overflow-x: auto; }
+          </style>
+        </head>
+        <body>
+          <h1>${report.title}</h1>
+          <p>Generado: ${new Date(report.generatedAt).toLocaleString('es-ES')}</p>
+          <pre>${dataStr}</pre>
+        </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Error viendo reporte:', error);
+    alert('Error al cargar el reporte');
+  }
+};
+
+// Descargar reporte
+const downloadReport = async (reportId) => {
+  try {
+    const report = await getReportById(reportId);
+    downloadGeneratedReport(report.data, report);
+  } catch (error) {
+    console.error('Error descargando reporte:', error);
+    alert('Error al descargar el reporte');
+  }
+};
+
+// Eliminar reporte
+const deleteReport = async (reportId) => {
+  if (!confirm('¿Estás seguro de eliminar este reporte?')) return;
+  
+  try {
+    await deleteReportAPI(reportId);
+    await loadReports();
+    alert('✅ Reporte eliminado correctamente');
+  } catch (error) {
+    console.error('Error eliminando reporte:', error);
+    alert('Error al eliminar el reporte');
+  }
+};
+
+// Utilidades
+const closeModal = () => {
+  showModal.value = false;
+  newReport.value = {
+    title: '',
+    type: '',
+    period: 'month',
+    format: 'json',
+    description: ''
+  };
+};
+
+const getCurrentDate = () => {
+  return new Date().toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const getTypeIcon = (type) => {
+  const icons = {
+    summary: 'summarize',
+    alerts: 'notification_important',
+    vessels: 'directions_boat',
+    zones: 'shield',
+    compliance: 'verified'
+  };
+  return icons[type] || 'description';
+};
+
+const convertToCSV = (data) => {
+  const flattenObject = (obj, prefix = '') => {
+    return Object.keys(obj).reduce((acc, key) => {
+      const value = obj[key];
+      const newKey = prefix ? `${prefix}_${key}` : key;
+      
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        Object.assign(acc, flattenObject(value, newKey));
+      } else {
+        acc[newKey] = value;
+      }
+      return acc;
+    }, {});
+  };
+  
+  const flatData = flattenObject(data);
+  const headers = Object.keys(flatData).join(',');
+  const values = Object.values(flatData).map(v => 
+    typeof v === 'string' && v.includes(',') ? `"${v}"` : v
+  ).join(',');
+  
+  return `${headers}\n${values}`;
+};
+
+// Cargar al montar
+onMounted(() => {
+  loadReports();
+});
 </script>
 
 <style scoped>
@@ -639,8 +815,17 @@ const generateReport = () => {
   color: #1f2937;
 }
 
+.form-hint {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #d1d5db;
@@ -650,8 +835,15 @@ const generateReport = () => {
   transition: border-color 0.2s ease;
 }
 
+.form-group textarea {
+  resize: vertical;
+  font-family: inherit;
+  min-height: 80px;
+}
+
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
   border-color: #10b981;
 }
 

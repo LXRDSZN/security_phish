@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAlerts, runAlertRules, resolveAlert } from '../controllers/alerts.controller.js';
+import { getAlerts, runAlertRules, resolveAlert, runImmediateAnalysis } from '../controllers/alerts.controller.js';
 
 const router = Router();
 
@@ -14,6 +14,12 @@ router.get('/', getAlerts);
  * Ejecutar reglas de detección de alertas
  */
 router.post('/run', runAlertRules);
+
+/**
+ * 🔍 POST /api/alerts/analyze
+ * Ejecutar análisis automático inmediato
+ */
+router.post('/analyze', runImmediateAnalysis);
 
 /**
  * ✅ PUT /api/alerts/:id/resolve

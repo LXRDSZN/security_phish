@@ -198,6 +198,28 @@ export const runAlertRules = async (req, res) => {
 };
 
 /**
+ * 🔍 POST /api/alerts/analyze
+ * Ejecutar análisis automático inmediato (sin esperar al scheduler)
+ */
+export const runImmediateAnalysis = async (req, res) => {
+  try {
+    console.log('🔍 Ejecutando análisis inmediato desde API...');
+    
+    // Importar dinámicamente para evitar dependencia circular
+    const { runManualAnalysis } = await import('../scheduler.js');
+    const result = await runManualAnalysis();
+    
+    res.json({
+      message: 'Análisis automático ejecutado',
+      ...result,
+    });
+  } catch (error) {
+    console.error('Error en análisis inmediato:', error);
+    res.status(500).json({ error: 'Error ejecutando análisis automático' });
+  }
+};
+
+/**
  * ✅ PUT /api/alerts/:id/resolve
  * Resolver una alerta
  */
@@ -245,4 +267,5 @@ export default {
   getAlerts,
   runAlertRules,
   resolveAlert,
+  runImmediateAnalysis,
 };

@@ -1,106 +1,88 @@
 <template>
   <div class="radar-container">
     <div class="radar-header">
-      <h1>Sistema de Radar</h1>
+      <h1>Sistema de Radar - Mapa en Tiempo Real</h1>
       <div class="radar-controls">
-        <button class="btn-primary" @click="toggleRadar">
-          <span class="material-symbols-rounded">{{ isActive ? 'stop' : 'play_arrow' }}</span>
-          {{ isActive ? 'Detener' : 'Activar' }} Radar
-        </button>
-        <button class="btn-secondary">
+        <button class="btn-primary" @click="refreshData">
           <span class="material-symbols-rounded">refresh</span>
-          Actualizar
+          Actualizar Datos
+        </button>
+        <button class="btn-secondary" @click="centerMap">
+          <span class="material-symbols-rounded">my_location</span>
+          Centrar Mapa
         </button>
       </div>
     </div>
 
     <div class="radar-status">
-      <div class="status-badge" :class="isActive ? 'active' : 'inactive'">
+      <div class="status-badge active">
         <span class="pulse"></span>
-        {{ isActive ? 'Radar Activo' : 'Radar Inactivo' }}
+        Radar Activo
       </div>
       <p>Última actualización: {{ lastUpdate }}</p>
+      <div class="stats-bar">
+        <span><strong>{{ vessels.length }}</strong> embarcaciones detectadas</span>
+        <span><strong>{{ zones.length }}</strong> zonas monitoreadas</span>
+        <span><strong>{{ alerts.length }}</strong> alertas activas</span>
+      </div>
     </div>
 
     <div class="radar-content">
-      <div class="radar-display">
-        <div class="radar-screen" :class="{ active: isActive }">
-          <div class="radar-grid">
-            <div class="grid-line horizontal" v-for="i in 8" :key="'h-'+i"></div>
-            <div class="grid-line vertical" v-for="i in 8" :key="'v-'+i"></div>
+      <div class="map-container">
+        <div id="map" ref="mapContainer"></div>
+        
+        <div class="map-legend">
+          <h3>Leyenda</h3>
+          <div class="legend-item">
+            <span class="legend-icon vessel"></span>
+            <span>Embarcación</span>
           </div>
-          <div class="radar-sweep" v-if="isActive"></div>
-          <div class="radar-center"></div>
-          
-          <div v-for="detection in detections" 
-               :key="detection.id" 
-               class="radar-blip"
-               :style="{ left: detection.x + '%', top: detection.y + '%' }">
-            <span class="blip-pulse"></span>
+          <div class="legend-item">
+            <span class="legend-icon zone"></span>
+            <span>Zona Protegida</span>
           </div>
-
-          <div class="radar-rings">
-            <div class="ring" v-for="i in 4" :key="'ring-'+i"></div>
-          </div>
-        </div>
-
-        <div class="radar-info">
-          <div class="info-item">
-            <span class="material-symbols-rounded">visibility</span>
-            <div>
-              <p class="label">Rango de Detección</p>
-              <p class="value">50 km</p>
-            </div>
-          </div>
-          <div class="info-item">
-            <span class="material-symbols-rounded">speed</span>
-            <div>
-              <p class="label">Velocidad de Escaneo</p>
-              <p class="value">30 RPM</p>
-            </div>
-          </div>
-          <div class="info-item">
-            <span class="material-symbols-rounded">schedule</span>
-            <div>
-              <p class="label">Tiempo de Ciclo</p>
-              <p class="value">2.0 seg</p>
-            </div>
+          <div class="legend-item">
+            <span class="legend-icon alert"></span>
+            <span>Alerta</span>
           </div>
         </div>
       </div>
 
       <div class="detections-panel">
         <h2>
-          <span class="material-symbols-rounded">satellite_alt</span>
-          Detecciones Activas ({{ detections.length }})
+          <span class="material-symbols-rounded">directions_boat</span>
+          Embarcaciones Detectadas ({{ vessels.length }})
         </h2>
         
-        <div class="detections-list">
-          <div v-for="detection in detectionsData" 
-               :key="detection.id" 
-               class="detection-card">
+        <div v-if="loading" class="loading-state">
+          <span class="material-symbols-rounded spinning">progress_activity</span>
+          <p>Cargando embarcaciones...</p>
+        </div>
+        
+        <div v-else class="detections-list">
+          <div v-for="vessel in vessels" 
+               :key="vessel.id" 
+               class="detection-card"
+               @click="focusVessel(vessel)">
             <div class="detection-header">
-              <span class="detection-id">{{ detection.name }}</span>
-              <span class="detection-badge" :class="detection.status">
-                {{ detection.status }}
+              <span class="detection-id">{{ vessel.name }}</span>
+              <span class="detection-badge" :class="vessel.status">
+                {{ vessel.status }}
               </span>
             </div>
             <div class="detection-details">
               <div class="detail-item">
-                <span class="material-symbols-rounded">explore</span>
-                <span>{{ detection.distance }} km</span>
+                <span class="material-symbols-rounded">flag</span>
+                <span>{{ vessel.flag }}</span>
               </div>
               <div class="detail-item">
-                <span class="material-symbols-rounded">navigation</span>
-                <span>{{ detection.bearing }}°</span>
+                <span class="material-symbols-rounded">category</span>
+                <span>{{ vessel.type }}</span>
               </div>
-              <div class="detail-item">
-                <span class="material-symbols-rounded">speed</span>
-                <span>{{ detection.speed }} nudos</span>
+              <div class="detail-item" v-if="vessel.mmsi">
+                <span class="material-symbols-rounded">tag</span>
+                <span>MMSI: {{ vessel.mmsi }}</span>
               </div>
-            </div>
-            <div class="detection-time">
-              Detectado: {{ detection.time }}
             </div>
           </div>
         </div>
@@ -111,43 +93,244 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
+import { useRoute } from 'vue-router';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { searchVessels } from '@/backend/services/api.js';
+import { getAllZones } from '@/backend/services/api.js';
+import { getAlerts } from '@/backend/services/api.js';
 
-const isActive = ref(true);
+const route = useRoute();
+const mapContainer = ref(null);
+let map = null;
+const loading = ref(true);
 const lastUpdate = ref('');
-const detections = ref([
-  { id: 1, x: 45, y: 30 },
-  { id: 2, x: 65, y: 55 },
-  { id: 3, x: 30, y: 60 },
-  { id: 4, x: 70, y: 25 },
-  { id: 5, x: 40, y: 70 }
-]);
+const vessels = ref([]);
+const zones = ref([]);
+const alerts = ref([]);
+const vesselMarkers = ref([]);
+const zonePolygons = ref([]);
 
-const detectionsData = ref([
-  { id: 1, name: 'PE-001', status: 'normal', distance: 12.5, bearing: 45, speed: 8, time: '14:30:25' },
-  { id: 2, name: 'PE-003', status: 'warning', distance: 8.3, bearing: 120, speed: 12, time: '14:28:10' },
-  { id: 3, name: 'PE-007', status: 'normal', distance: 15.7, bearing: 230, speed: 6, time: '14:25:45' },
-  { id: 4, name: 'PE-012', status: 'alert', distance: 5.2, bearing: 310, speed: 15, time: '14:32:00' },
-  { id: 5, name: 'PE-015', status: 'normal', distance: 22.1, bearing: 180, speed: 9, time: '14:20:15' }
-]);
+// Inicializar el mapa
+const initMap = () => {
+  if (!mapContainer.value) return;
 
-let updateInterval;
+  // Crear mapa centrado en el océano Pacífico (coordenadas generales)
+  map = L.map(mapContainer.value).setView([-10, -80], 5);
 
-const toggleRadar = () => {
-  isActive.value = !isActive.value;
+  // Agregar capa de OpenStreetMap
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 18
+  }).addTo(map);
+
+  console.log('✅ Mapa inicializado');
 };
 
+// Cargar embarcaciones desde GFW
+const loadVessels = async () => {
+  try {
+    loading.value = true;
+    console.log('🔄 Cargando embarcaciones desde GFW...');
+    
+    // Si viene de búsqueda de embarcación, buscar esa específica
+    const searchTerm = route.query.vesselName || route.query.mmsi || 'fishing';
+    const result = await searchVessels(searchTerm, 50);
+    
+    vessels.value = result.vessels.map(vessel => ({
+      id: vessel.id,
+      name: vessel.name || 'Sin nombre',
+      mmsi: vessel.mmsi,
+      imo: vessel.imo,
+      flag: vessel.flag || 'Unknown',
+      type: vessel.type || 'Unknown',
+      status: 'normal',
+      // Posiciones simuladas (GFW requiere permisos especiales para tracks)
+      lat: -10 + (Math.random() - 0.5) * 20,
+      lon: -80 + (Math.random() - 0.5) * 20
+    }));
+
+    console.log(`✅ ${vessels.value.length} embarcaciones cargadas`);
+    console.log('📋 Primeras 5 embarcaciones:', vessels.value.slice(0, 5).map(v => ({ name: v.name, mmsi: v.mmsi, flag: v.flag })));
+    
+    // Agregar marcadores al mapa
+    addVesselMarkers();
+    
+    // Si viene de rastrear una embarcación específica, enfocarla
+    if (route.query.vesselId || route.query.vesselName) {
+      setTimeout(() => {
+        const targetVessel = vessels.value.find(v => 
+          v.id === route.query.vesselId || 
+          v.name === route.query.vesselName ||
+          v.mmsi === route.query.mmsi
+        );
+        if (targetVessel) {
+          focusVessel(targetVessel);
+        }
+      }, 500);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error cargando embarcaciones:', error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+// Cargar zonas protegidas
+const loadZones = async () => {
+  try {
+    const zonesData = await getAllZones(true);
+    zones.value = zonesData;
+    
+    console.log(`✅ ${zones.value.length} zonas cargadas`);
+    
+    // Agregar polígonos al mapa
+    addZonePolygons();
+    
+  } catch (error) {
+    console.error('❌ Error cargando zonas:', error);
+  }
+};
+
+// Cargar alertas activas
+const loadAlerts = async () => {
+  try {
+    const alertsData = await getAlerts({ status: 'active' });
+    alerts.value = alertsData.slice(0, 10);
+    
+    console.log(`✅ ${alerts.value.length} alertas cargadas`);
+    
+  } catch (error) {
+    console.error('❌ Error cargando alertas:', error);
+  }
+};
+
+// Agregar marcadores de embarcaciones al mapa
+const addVesselMarkers = () => {
+  if (!map) return;
+
+  // Limpiar marcadores anteriores
+  vesselMarkers.value.forEach(marker => marker.remove());
+  vesselMarkers.value = [];
+
+  // Crear marcadores para cada embarcación
+  vessels.value.forEach(vessel => {
+    const icon = L.divIcon({
+      className: 'vessel-marker',
+      html: `<div class="marker-content">
+               <span class="material-symbols-rounded">directions_boat</span>
+             </div>`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+
+    const marker = L.marker([vessel.lat, vessel.lon], { icon })
+      .addTo(map)
+      .bindPopup(`
+        <div class="vessel-popup">
+          <h3>${vessel.name}</h3>
+          <p><strong>MMSI:</strong> ${vessel.mmsi || 'N/A'}</p>
+          <p><strong>Bandera:</strong> ${vessel.flag}</p>
+          <p><strong>Tipo:</strong> ${vessel.type}</p>
+          <p><strong>Estado:</strong> ${vessel.status}</p>
+        </div>
+      `);
+
+    vesselMarkers.value.push(marker);
+  });
+
+  console.log(`✅ ${vesselMarkers.value.length} marcadores agregados al mapa`);
+};
+
+// Agregar polígonos de zonas protegidas
+const addZonePolygons = () => {
+  if (!map || !zones.value.length) return;
+
+  // Limpiar polígonos anteriores
+  zonePolygons.value.forEach(poly => poly.remove());
+  zonePolygons.value = [];
+
+  zones.value.forEach(zone => {
+    if (!zone.geometry || zone.geometry.type !== 'Polygon') return;
+
+    const coordinates = zone.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+
+    const color = zone.level === 'high' ? '#ef4444' : 
+                  zone.level === 'medium' ? '#f59e0b' : '#3b82f6';
+
+    const polygon = L.polygon(coordinates, {
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.2,
+      weight: 2
+    }).addTo(map)
+      .bindPopup(`
+        <div class="zone-popup">
+          <h3>${zone.name}</h3>
+          <p><strong>Nivel:</strong> ${zone.level}</p>
+          <p>${zone.description || 'Zona protegida'}</p>
+        </div>
+      `);
+
+    zonePolygons.value.push(polygon);
+  });
+
+  console.log(`✅ ${zonePolygons.value.length} zonas agregadas al mapa`);
+};
+
+// Enfocar embarcación en el mapa
+const focusVessel = (vessel) => {
+  if (!map) return;
+  map.setView([vessel.lat, vessel.lon], 10);
+  
+  // Abrir popup del marcador correspondiente
+  const marker = vesselMarkers.value.find(m => 
+    m.getLatLng().lat === vessel.lat && m.getLatLng().lng === vessel.lon
+  );
+  if (marker) marker.openPopup();
+};
+
+// Centrar mapa
+const centerMap = () => {
+  if (!map) return;
+  map.setView([-10, -80], 5);
+};
+
+// Refrescar datos
+const refreshData = async () => {
+  updateTime();
+  await Promise.all([
+    loadVessels(),
+    loadZones(),
+    loadAlerts()
+  ]);
+};
+
+// Actualizar tiempo
 const updateTime = () => {
   const now = new Date();
   lastUpdate.value = now.toLocaleTimeString('es-ES');
 };
 
-onMounted(() => {
+let updateInterval;
+
+onMounted(async () => {
+  initMap();
   updateTime();
-  updateInterval = setInterval(updateTime, 1000);
+  
+  // Cargar datos iniciales
+  await refreshData();
+  
+  // Actualizar cada 30 segundos
+  updateInterval = setInterval(() => {
+    updateTime();
+  }, 30000);
 });
 
 onUnmounted(() => {
   if (updateInterval) clearInterval(updateInterval);
+  if (map) map.remove();
 });
 </script>
 
@@ -221,6 +404,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 2rem;
   margin-bottom: 2rem;
+  flex-wrap: wrap;
 }
 
 .status-badge {
@@ -238,12 +422,6 @@ onUnmounted(() => {
   border: 2px solid #10b981;
 }
 
-.status-badge.inactive {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-  border: 2px solid #ef4444;
-}
-
 .pulse {
   width: 10px;
   height: 10px;
@@ -257,168 +435,87 @@ onUnmounted(() => {
   50% { opacity: 0.5; transform: scale(1.2); }
 }
 
+.stats-bar {
+  display: flex;
+  gap: 2rem;
+  font-size: 0.95rem;
+}
+
+.stats-bar span {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.stats-bar strong {
+  color: #10b981;
+  font-size: 1.1rem;
+}
+
 .radar-content {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 2rem;
 }
 
-.radar-display {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.radar-screen {
+.map-container {
   position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
-  border-radius: 50%;
-  border: 3px solid #334155;
-  box-shadow: 0 0 40px rgba(16, 185, 129, 0.3), inset 0 0 40px rgba(0, 0, 0, 0.5);
+  background: white;
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-.radar-grid {
-  position: absolute;
+#map {
   width: 100%;
-  height: 100%;
-  opacity: 0.3;
+  height: 600px;
+  z-index: 1;
 }
 
-.grid-line {
+.map-legend {
   position: absolute;
-  background: #10b981;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  color: #1f2937;
 }
 
-.grid-line.horizontal {
-  width: 100%;
-  height: 1px;
+.map-legend h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #064e3b;
 }
 
-.grid-line.vertical {
-  width: 1px;
-  height: 100%;
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
 }
 
-.radar-rings {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
+.legend-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.ring {
-  position: absolute;
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  border-radius: 50%;
-}
-
-.ring:nth-child(1) { width: 25%; height: 25%; }
-.ring:nth-child(2) { width: 50%; height: 50%; }
-.ring:nth-child(3) { width: 75%; height: 75%; }
-.ring:nth-child(4) { width: 95%; height: 95%; }
-
-.radar-sweep {
-  position: absolute;
-  width: 50%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent 0%, #10b981 100%);
-  top: 50%;
-  left: 50%;
-  transform-origin: left center;
-  animation: sweep 2s linear infinite;
-  box-shadow: 0 0 20px #10b981;
-}
-
-@keyframes sweep {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.radar-center {
-  position: absolute;
-  width: 12px;
-  height: 12px;
+.legend-icon.vessel {
   background: #10b981;
-  border-radius: 50%;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 20px #10b981;
-  z-index: 10;
 }
 
-.radar-blip {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  background: #f59e0b;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 10px #f59e0b;
-  animation: blip 2s infinite;
+.legend-icon.zone {
+  background: rgba(59, 130, 246, 0.3);
+  border: 2px solid #3b82f6;
 }
 
-@keyframes blip {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-.blip-pulse {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: rgba(245, 158, 11, 0.3);
-  border-radius: 50%;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation: pulse-ring 2s infinite;
-}
-
-@keyframes pulse-ring {
-  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
-}
-
-.radar-info {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-
-.info-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.info-item .material-symbols-rounded {
-  font-size: 2rem;
-  color: #10b981;
-}
-
-.label {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #94a3b8;
-}
-
-.value {
-  margin: 0.25rem 0 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: white;
+.legend-icon.alert {
+  background: #ef4444;
 }
 
 .detections-panel {
@@ -436,6 +533,26 @@ onUnmounted(() => {
   font-size: 1.25rem;
 }
 
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .detections-list {
   display: flex;
   flex-direction: column;
@@ -450,11 +567,13 @@ onUnmounted(() => {
   padding: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
+  cursor: pointer;
 }
 
 .detection-card:hover {
   background: rgba(255, 255, 255, 0.08);
   transform: translateX(4px);
+  border-color: #10b981;
 }
 
 .detection-header {
@@ -494,34 +613,26 @@ onUnmounted(() => {
 
 .detection-details {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .detail-item {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
   font-size: 0.9rem;
   color: #cbd5e1;
 }
 
 .detail-item .material-symbols-rounded {
-  font-size: 1rem;
-}
-
-.detection-time {
-  font-size: 0.8rem;
-  color: #64748b;
+  font-size: 1.1rem;
+  color: #10b981;
 }
 
 @media (max-width: 1200px) {
   .radar-content {
     grid-template-columns: 1fr;
-  }
-  
-  .radar-info {
-    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -532,8 +643,55 @@ onUnmounted(() => {
     gap: 1rem;
   }
   
-  .radar-info {
-    grid-template-columns: 1fr;
+  .stats-bar {
+    flex-direction: column;
+    gap: 0.5rem;
   }
+}
+</style>
+
+<style>
+/* Estilos globales para Leaflet */
+.vessel-marker {
+  background: transparent;
+  border: none;
+}
+
+.marker-content {
+  width: 32px;
+  height: 32px;
+  background: #10b981;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.5);
+  animation: marker-pulse 2s infinite;
+}
+
+@keyframes marker-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.vessel-popup h3 {
+  margin: 0 0 0.5rem 0;
+  color: #064e3b;
+}
+
+.vessel-popup p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.zone-popup h3 {
+  margin: 0 0 0.5rem 0;
+  color: #064e3b;
+}
+
+.zone-popup p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
 }
 </style>

@@ -13,45 +13,47 @@
     <div class="stats-overview">
       <div class="stat-card primary">
         <div class="stat-icon">
-          <span class="material-symbols-rounded">water</span>
+          <span class="material-symbols-rounded">directions_boat</span>
         </div>
         <div class="stat-info">
-          <h3>{{ totalCapture }} Ton</h3>
-          <p>Captura Total</p>
-          <span class="trend up">+12% vs período anterior</span>
+          <h3>{{ totalVessels }}</h3>
+          <p>Total Embarcaciones</p>
+          <span class="trend up">Monitoreadas por GFW</span>
         </div>
       </div>
 
       <div class="stat-card success">
         <div class="stat-icon">
-          <span class="material-symbols-rounded">trending_up</span>
+          <span class="material-symbols-rounded">sailing</span>
         </div>
         <div class="stat-info">
-          <h3>{{ efficiency }}%</h3>
-          <p>Eficiencia Operativa</p>
-          <span class="trend up">+5% vs período anterior</span>
+          <h3>{{ activeVessels }}</h3>
+          <p>Embarcaciones Activas</p>
+          <span class="trend up">En tiempo real</span>
         </div>
       </div>
 
       <div class="stat-card warning">
         <div class="stat-icon">
-          <span class="material-symbols-rounded">schedule</span>
+          <span class="material-symbols-rounded">notification_important</span>
         </div>
         <div class="stat-info">
-          <h3>{{ avgTime }}h</h3>
-          <p>Tiempo Prom. Faena</p>
-          <span class="trend down">-8% vs período anterior</span>
+          <h3>{{ totalAlerts }}</h3>
+          <p>Total de Alertas</p>
+          <span class="trend" :class="totalAlerts > 10 ? 'down' : 'up'">
+            Período: {{ getPeriodLabel(timePeriod) }}
+          </span>
         </div>
       </div>
 
       <div class="stat-card info">
         <div class="stat-icon">
-          <span class="material-symbols-rounded">eco</span>
+          <span class="material-symbols-rounded">verified</span>
         </div>
         <div class="stat-info">
-          <h3>{{ compliance }}%</h3>
+          <h3>{{ complianceRate }}%</h3>
           <p>Cumplimiento Normativo</p>
-          <span class="trend up">+3% vs período anterior</span>
+          <span class="trend up">Tasa de cumplimiento</span>
         </div>
       </div>
     </div>
@@ -121,7 +123,7 @@
           <span class="material-symbols-rounded">assessment</span>
           Reportes Recientes
         </h2>
-        <button class="btn-export">
+        <button class="btn-export" @click="exportData">
           <span class="material-symbols-rounded">download</span>
           Exportar Datos
         </button>
@@ -157,46 +159,180 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, watch } from 'vue';
+import {
+  getStatisticsSummary,
+  getVesselsStatistics,
+  getZonesStatistics,
+  getAlertsStatistics,
+  getTimeSeriesData
+} from '@/backend/services/api.js';
 
-const timePeriod = ref('week');
-const totalCapture = ref(1247);
-const efficiency = ref(87);
-const avgTime = ref(6.5);
-const compliance = ref(94);
+// Estado
+const timePeriod = ref('month');
+const loading = ref(false);
 
-const boatStats = ref([
-  { name: 'PE-001', value: 45, percentage: 90 },
-  { name: 'PE-003', value: 38, percentage: 76 },
-  { name: 'PE-007', value: 42, percentage: 84 },
-  { name: 'PE-012', value: 35, percentage: 70 },
-  { name: 'PE-015', value: 40, percentage: 80 }
-]);
+// Datos del resumen
+const totalVessels = ref(0);
+const activeVessels = ref(0);
+const totalAlerts = ref(0);
+const complianceRate = ref(0);
 
-const speciesData = ref([
-  { name: 'Anchoveta', percentage: 45, color: '#3b82f6' },
-  { name: 'Jurel', percentage: 25, color: '#10b981' },
-  { name: 'Caballa', percentage: 20, color: '#f59e0b' },
-  { name: 'Bonito', percentage: 10, color: '#ef4444' }
-]);
+// Datos de embarcaciones
+const boatStats = ref([]);
 
-const weekData = ref([
-  { day: 'Lun', value: 75 },
-  { day: 'Mar', value: 85 },
-  { day: 'Mié', value: 70 },
-  { day: 'Jue', value: 90 },
-  { day: 'Vie', value: 80 },
-  { day: 'Sáb', value: 65 },
-  { day: 'Dom', value: 55 }
-]);
+// Datos de zonas
+const speciesData = ref([]);
 
-const reports = ref([
-  { id: 1, boat: 'PE-001', captain: 'Juan Pérez', capture: '12.5', zone: 'Zona A', date: '15/02/2024', status: 'approved' },
-  { id: 2, boat: 'PE-003', captain: 'María López', capture: '18.3', zone: 'Zona B', date: '15/02/2024', status: 'approved' },
-  { id: 3, boat: 'PE-007', captain: 'Carlos Ruiz', capture: '10.2', zone: 'Zona C', date: '14/02/2024', status: 'pending' },
-  { id: 4, boat: 'PE-012', captain: 'Ana Torres', capture: '15.7', zone: 'Zona A', date: '14/02/2024', status: 'approved' },
-  { id: 5, boat: 'PE-015', captain: 'Luis García', capture: '8.9', zone: 'Zona D', date: '13/02/2024', status: 'rejected' }
-]);
+// Datos de tendencia
+const weekData = ref([]);
+
+// Reportes (alertas recientes)
+const reports = ref([]);
+
+// Cargar estadísticas
+const loadStatistics = async () => {
+  try {
+    loading.value = true;
+
+    // Cargar resumen
+    const summary = await getStatisticsSummary(timePeriod.value);
+    totalVessels.value = summary.totalVessels || 0;
+    activeVessels.value = summary.activeVessels || 0;
+    totalAlerts.value = summary.totalAlerts || 0;
+    complianceRate.value = summary.complianceRate || 0;
+
+    // Cargar estadísticas de embarcaciones
+    const vessels = await getVesselsStatistics();
+    if (vessels.topVessels) {
+      boatStats.value = vessels.topVessels.slice(0, 5).map((vessel, index) => ({
+        name: vessel.name,
+        value: vessel.detections,
+        percentage: Math.min(100, (vessel.detections / 100) * 100)
+      }));
+    }
+
+    // Cargar estadísticas de zonas
+    const zones = await getZonesStatistics();
+    if (zones.byLevel) {
+      const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981'];
+      speciesData.value = Object.entries(zones.byLevel).map(([level, count], index) => {
+        const labels = {
+          high: 'Alta Restricción',
+          medium: 'Media Restricción',
+          low: 'Monitoreo'
+        };
+        return {
+          name: labels[level] || level,
+          percentage: Math.round((count / zones.total) * 100),
+          color: colors[index]
+        };
+      });
+    }
+
+    // Cargar serie temporal
+    const timeseries = await getTimeSeriesData(timePeriod.value, 'alerts');
+    if (timeseries.data) {
+      weekData.value = timeseries.data.slice(-7).map(item => ({
+        day: new Date(item.date).toLocaleDateString('es-ES', { weekday: 'short' }),
+        value: item.value
+      }));
+    }
+
+    // Cargar alertas recientes
+    const alerts = await getAlertsStatistics(timePeriod.value);
+    if (alerts.trend) {
+      reports.value = alerts.trend.slice(-5).map((item, index) => ({
+        id: index + 1,
+        boat: `Alerta ${index + 1}`,
+        captain: 'Sistema',
+        capture: item.count.toString(),
+        zone: 'Varias',
+        date: new Date(item.date).toLocaleDateString('es-ES'),
+        status: item.count > 2 ? 'rejected' : item.count > 0 ? 'pending' : 'approved'
+      }));
+    }
+
+  } catch (error) {
+    console.error('Error cargando estadísticas:', error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+// Watch para cambios en el período
+watch(timePeriod, () => {
+  loadStatistics();
+});
+
+// Función para exportar datos
+const exportData = () => {
+  try {
+    // Preparar datos para exportar
+    const exportObj = {
+      fecha_generacion: new Date().toISOString(),
+      periodo: timePeriod.value,
+      resumen: {
+        total_embarcaciones: totalVessels.value,
+        embarcaciones_activas: activeVessels.value,
+        total_alertas: totalAlerts.value,
+        tasa_cumplimiento: complianceRate.value + '%'
+      },
+      embarcaciones_top: boatStats.value,
+      zonas_por_nivel: speciesData.value,
+      tendencia_semanal: weekData.value,
+      alertas_recientes: reports.value
+    };
+
+    // Convertir a JSON
+    const dataStr = JSON.stringify(exportObj, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+
+    // Crear link de descarga
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `estadisticas_${timePeriod.value}_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    // También exportar como CSV
+    exportCSV();
+
+  } catch (error) {
+    console.error('Error exportando datos:', error);
+    alert('Error al exportar los datos');
+  }
+};
+
+// Exportar como CSV
+const exportCSV = () => {
+  try {
+    // CSV de alertas recientes
+    const csvHeader = 'Embarcación,Capitán,Capturas,Zona,Fecha,Estado\n';
+    const csvRows = reports.value.map(r => 
+      `${r.boat},${r.captain},${r.capture},${r.zone},${r.date},${getStatusLabel(r.status)}`
+    ).join('\n');
+    
+    const csvContent = csvHeader + csvRows;
+    const csvBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    const url = URL.createObjectURL(csvBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `alertas_${timePeriod.value}_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    alert('✅ Datos exportados correctamente (JSON + CSV)');
+  } catch (error) {
+    console.error('Error exportando CSV:', error);
+  }
+};
 
 const getStatusLabel = (status) => {
   const labels = {
@@ -206,6 +342,21 @@ const getStatusLabel = (status) => {
   };
   return labels[status] || status;
 };
+
+const getPeriodLabel = (period) => {
+  const labels = {
+    day: 'Hoy',
+    week: 'Esta Semana',
+    month: 'Este Mes',
+    year: 'Este Año'
+  };
+  return labels[period] || period;
+};
+
+// Cargar al montar
+onMounted(() => {
+  loadStatistics();
+});
 </script>
 
 <style scoped>
