@@ -139,7 +139,7 @@ const initMap = () => {
   if (!mapContainer.value) return;
 
   // Centro en Guatemala
-  map = L.map('dashboard-map').setView([15.7835, -90.2308], 8);
+  map = L.map('dashboard-map').setView([15.0, -90.5], 7);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
@@ -150,13 +150,13 @@ const initMap = () => {
   zonesLayer = L.layerGroup().addTo(map);
 };
 
-// Cargar embarcaciones en el mapa
+// Cargar embarcaciones en el mapa (IGUAL QUE EN RADAR)
 const loadVesselsOnMap = async () => {
   try {
-    console.log('🚢 Cargando embarcaciones en el mapa...');
+    console.log('🚢 Cargando embarcaciones desde backend (igual que Radar)...');
     
-    // Buscar embarcaciones de pesca en el área de Guatemala
-    const response = await searchVessels('fishing', 100);
+    // Usar la misma búsqueda que Radar: 'fishing' con límite de 50
+    const response = await searchVessels('fishing', 50);
     
     console.log('📦 Respuesta de embarcaciones:', response);
 
@@ -165,19 +165,17 @@ const loadVesselsOnMap = async () => {
     }
 
     // La API devuelve { vessels: [], total: X }
-    const vessels = response.vessels || response.entries || [];
+    const vessels = response.vessels || [];
     
     if (vessels.length === 0) {
-      console.warn('⚠️ No se encontraron embarcaciones');
-      // Agregar embarcaciones de ejemplo en el área de Guatemala
-      addDemoVessels();
+      console.warn('⚠️ No se encontraron embarcaciones desde GFW');
       return;
     }
 
     let vesselsAdded = 0;
 
     vessels.forEach(vessel => {
-      // Verificar que tenga coordenadas válidas
+      // Usar las coordenadas que vienen del backend (generadas por vessel-positions.service.js)
       const lat = vessel.latitude || vessel.lat;
       const lon = vessel.longitude || vessel.lon;
       
@@ -193,13 +191,13 @@ const loadVesselsOnMap = async () => {
           .bindPopup(`
             <div style="min-width: 200px;">
               <h3 style="margin: 0 0 8px 0; color: #064e3b; font-size: 14px;">
-                🚢 ${vessel.shipName || vessel.name || 'Embarcación'}
+                🚢 ${vessel.name || 'Embarcación'}
               </h3>
               <p style="margin: 4px 0; font-size: 12px;">
-                <strong>Tipo:</strong> ${vessel.shipType || vessel.type || 'Pesca'}
+                <strong>Tipo:</strong> ${vessel.type || 'Pesca'}
               </p>
               <p style="margin: 4px 0; font-size: 12px;">
-                <strong>MMSI:</strong> ${vessel.ssvid || vessel.mmsi || 'N/A'}
+                <strong>MMSI:</strong> ${vessel.mmsi || 'N/A'}
               </p>
               <p style="margin: 4px 0; font-size: 12px;">
                 <strong>Bandera:</strong> ${vessel.flag || 'N/A'}
@@ -215,61 +213,11 @@ const loadVesselsOnMap = async () => {
       }
     });
 
-    console.log(`✅ ${vesselsAdded} embarcaciones agregadas al mapa`);
+    console.log(`✅ ${vesselsAdded} embarcaciones del Radar agregadas al Dashboard`);
 
   } catch (error) {
-    console.error('❌ Error cargando embarcaciones en mapa:', error);
-    // En caso de error, agregar embarcaciones de ejemplo
-    addDemoVessels();
+    console.error('❌ Error cargando embarcaciones:', error);
   }
-};
-
-// Agregar embarcaciones de demostración en el área de Guatemala
-const addDemoVessels = () => {
-  console.log('📍 Agregando embarcaciones de demostración...');
-  
-  // Embarcaciones de ejemplo en aguas guatemaltecas
-  const demoVessels = [
-    { name: 'Embarcación de Pesca 1', lat: 13.85, lon: -91.85, type: 'Pesca artesanal' },
-    { name: 'Embarcación de Pesca 2', lat: 15.65, lon: -88.45, type: 'Pesca comercial' },
-    { name: 'Embarcación de Pesca 3', lat: 14.25, lon: -89.95, type: 'Pesca artesanal' },
-    { name: 'Embarcación de Pesca 4', lat: 13.95, lon: -90.75, type: 'Pesca comercial' },
-    { name: 'Embarcación de Pesca 5', lat: 15.85, lon: -88.75, type: 'Pesca artesanal' },
-    { name: 'Embarcación de Pesca 6', lat: 14.15, lon: -91.25, type: 'Pesca comercial' },
-    { name: 'Embarcación de Pesca 7', lat: 15.45, lon: -88.95, type: 'Pesca artesanal' },
-    { name: 'Embarcación de Pesca 8', lat: 13.75, lon: -90.25, type: 'Pesca comercial' },
-  ];
-
-  demoVessels.forEach((vessel, index) => {
-    const vesselIcon = L.divIcon({
-      html: `<div style="background: #10b981; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-      className: 'vessel-marker',
-      iconSize: [14, 14],
-      iconAnchor: [7, 7]
-    });
-
-    const marker = L.marker([vessel.lat, vessel.lon], { icon: vesselIcon })
-      .bindPopup(`
-        <div style="min-width: 200px;">
-          <h3 style="margin: 0 0 8px 0; color: #064e3b; font-size: 14px;">
-            🚢 ${vessel.name}
-          </h3>
-          <p style="margin: 4px 0; font-size: 12px;">
-            <strong>Tipo:</strong> ${vessel.type}
-          </p>
-          <p style="margin: 4px 0; font-size: 12px;">
-            <strong>ID:</strong> GT-${1000 + index}
-          </p>
-          <p style="margin: 4px 0; font-size: 12px;">
-            <strong>Posición:</strong> ${vessel.lat.toFixed(4)}, ${vessel.lon.toFixed(4)}
-          </p>
-        </div>
-      `);
-    
-    vesselsLayer.addLayer(marker);
-  });
-
-  console.log(`✅ ${demoVessels.length} embarcaciones de demostración agregadas`);
 };
 
 // Cargar zonas en el mapa

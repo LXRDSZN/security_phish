@@ -115,8 +115,8 @@ const zonePolygons = ref([]);
 const initMap = () => {
   if (!mapContainer.value) return;
 
-  // Crear mapa centrado en el océano Pacífico (coordenadas generales)
-  map = L.map(mapContainer.value).setView([-10, -80], 5);
+  // Crear mapa centrado en Guatemala
+  map = L.map(mapContainer.value).setView([15.0, -90.5], 7);
 
   // Agregar capa de OpenStreetMap
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -140,24 +140,30 @@ const loadVessels = async () => {
     vessels.value = result.vessels.map(vessel => ({
       id: vessel.id,
       name: vessel.name || 'Sin nombre',
-      mmsi: vessel.mmsi,
-      imo: vessel.imo,
+      mmsi: vessel.mmsi || 'N/A',
+      imo: vessel.imo || 'N/A',
       flag: vessel.flag || 'Unknown',
       type: vessel.type || 'Unknown',
       status: 'normal',
-      // Posiciones simuladas (GFW requiere permisos especiales para tracks)
-      lat: -10 + (Math.random() - 0.5) * 20,
-      lon: -80 + (Math.random() - 0.5) * 20
+      // Usar las coordenadas que ahora vienen del backend
+      lat: vessel.latitude || vessel.lat,
+      lon: vessel.longitude || vessel.lon
     }));
 
     console.log(`✅ ${vessels.value.length} embarcaciones cargadas`);
-    console.log('📋 Primeras 5 embarcaciones:', vessels.value.slice(0, 5).map(v => ({ name: v.name, mmsi: v.mmsi, flag: v.flag })));
+    console.log('📋 Primeras 5 embarcaciones:', vessels.value.slice(0, 5).map(v => ({ 
+      name: v.name, 
+      mmsi: v.mmsi, 
+      flag: v.flag,
+      lat: v.lat,
+      lon: v.lon 
+    })));
     
     // Agregar marcadores al mapa
     addVesselMarkers();
     
     // Si viene de rastrear una embarcación específica, enfocarla
-    if (route.query.vesselId || route.query.vesselName) {
+    if (route.query.vesselId || route.query.vesselName || route.query.mmsi) {
       setTimeout(() => {
         const targetVessel = vessels.value.find(v => 
           v.id === route.query.vesselId || 
@@ -165,7 +171,10 @@ const loadVessels = async () => {
           v.mmsi === route.query.mmsi
         );
         if (targetVessel) {
+          console.log('🎯 Enfocando embarcación:', targetVessel.name);
           focusVessel(targetVessel);
+        } else {
+          console.warn('⚠️ No se encontró la embarcación buscada');
         }
       }, 500);
     }
@@ -294,7 +303,7 @@ const focusVessel = (vessel) => {
 // Centrar mapa
 const centerMap = () => {
   if (!map) return;
-  map.setView([-10, -80], 5);
+  map.setView([15.0, -90.5], 7);
 };
 
 // Refrescar datos

@@ -109,21 +109,20 @@
           Mapa de Alertas
         </h2>
         <div class="map-view">
-          <span class="material-symbols-rounded">public</span>
-          <p>Ubicación de alertas activas</p>
-          <div class="map-legend">
-            <div class="legend-item high">
-              <span></span>
-              Alta Prioridad
-            </div>
-            <div class="legend-item medium">
-              <span></span>
-              Media Prioridad
-            </div>
-            <div class="legend-item low">
-              <span></span>
-              Baja Prioridad
-            </div>
+          <div id="alerts-map" style="width: 100%; height: 100%; min-height: 500px; border-radius: 12px; overflow: hidden;"></div>
+        </div>
+        <div class="map-legend">
+          <div class="legend-item high">
+            <span></span>
+            Alta Prioridad
+          </div>
+          <div class="legend-item medium">
+            <span></span>
+            Media Prioridad
+          </div>
+          <div class="legend-item low">
+            <span></span>
+            Baja Prioridad
           </div>
         </div>
       </div>
@@ -132,12 +131,133 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
-import { getAlerts, resolveAlert } from '@/backend/services/api.js';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { getAlerts, resolveAlert, getAllZones } from '@/backend/services/api.js';
 
 const filter = ref('all');
 const alerts = ref([]);
 const loading = ref(false);
+const mapContainer = ref(null);
+let map = null;
+let alertsLayer = null;
+let zonesLayer = null;
+
+// Inicializar mapa
+const initMap = () => {
+  // Crear mapa centrado en Guatemala
+  map = L.map('alerts-map').setView([15.0, -90.5], 7);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 18
+  }).addTo(map);
+
+  alertsLayer = L.layerGroup().addTo(map);
+  zonesLayer = L.layerGroup().addTo(map);
+  
+  console.log('✅ Mapa de alertas inicializado');
+};
+
+// Cargar alertas en el mapa
+const loadAlertsOnMap = async () => {
+  if (!map || !alertsLayer) return;
+  
+  alertsLayer.clearLayers();
+  
+  // Agregar marcadores de alertas con coordenadas EN EL MAR
+  const maritimePositions = [
+    // Pacífico
+    { lat: 13.30, lon: -92.20 }, { lat: 13.15, lon: -92.10 }, { lat: 12.90, lon: -91.70 },
+    { lat: 12.65, lon: -91.25 }, { lat: 13.40, lon: -92.35 },
+    // Caribe
+    { lat: 16.15, lon: -88.50 }, { lat: 16.25, lon: -88.10 }, { lat: 16.35, lon: -87.95 }
+  ];
+  
+  alerts.value.forEach((alert, index) => {
+    // Usar posiciones fijas en el océano
+    const position = maritimePositions[index % maritimePositions.length];
+    const lat = position.lat + (Math.random() - 0.5) * 0.1; // Variación mínima
+    const lon = position.lon + (Math.random() - 0.5) * 0.1;
+    
+    const color = alert.priority === 'high' ? '#dc2626' : 
+                  alert.priority === 'medium' ? '#f59e0b' : '#10b981';
+    
+    const alertIcon = L.divIcon({
+      html: `<div style="background: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;">
+        <span style="color: white; font-size: 12px; font-weight: bold;">!</span>
+      </div>`,
+      className: 'alert-marker',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    });
+
+    const marker = L.marker([lat, lon], { icon: alertIcon })
+      .bindPopup(`
+        <div style="min-width: 250px;">
+          <h3 style="margin: 0 0 8px 0; color: ${color}; font-size: 14px;">
+            ⚠️ ${alert.title}
+          </h3>
+          <p style="margin: 4px 0; font-size: 12px;">
+            <strong>Prioridad:</strong> ${getPriorityLabel(alert.priority)}
+          </p>
+          <p style="margin: 4px 0; font-size: 12px;">
+            <strong>Descripción:</strong> ${alert.description}
+          </p>
+          <p style="margin: 4px 0; font-size: 12px;">
+            <strong>Ubicación:</strong> ${alert.location || 'N/A'}
+          </p>
+          <p style="margin: 4px 0; font-size: 12px;">
+            <strong>Hora:</strong> ${alert.time}
+          </p>
+        </div>
+      `);
+    
+    alertsLayer.addLayer(marker);
+  });
+};
+
+// Cargar zonas en el mapa
+const loadZonesOnMap = async () => {
+  if (!map || !zonesLayer) return;
+  
+  try {
+    const zones = await getAllZones(true);
+    
+    zonesLayer.clearLayers();
+    
+    zones.forEach(zone => {
+      if (zone.geometry && zone.geometry.coordinates) {
+        const coords = zone.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+        
+        const color = zone.level === 'high' ? '#dc2626' : 
+                      zone.level === 'medium' ? '#f59e0b' : '#10b981';
+
+        const polygon = L.polygon(coords, {
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.15,
+          weight: 2,
+          dashArray: '5, 5'
+        }).bindPopup(`
+          <div style="min-width: 200px;">
+            <h3 style="margin: 0 0 8px 0; color: #064e3b; font-size: 14px;">
+              🛡️ ${zone.name}
+            </h3>
+            <p style="margin: 4px 0; font-size: 12px;">
+              <strong>Nivel:</strong> ${zone.level}
+            </p>
+          </div>
+        `);
+        
+        zonesLayer.addLayer(polygon);
+      }
+    });
+  } catch (error) {
+    console.error('Error cargando zonas en mapa:', error);
+  }
+};
 
 // Cargar alertas desde GFW
 const loadAlerts = async () => {
@@ -151,23 +271,46 @@ const loadAlerts = async () => {
     
     const alertsData = await getAlerts(filters);
     alerts.value = alertsData.map(alert => ({
-      id: alert.id,
+      id: alert._id || alert.id,
       priority: alert.priority,
-      icon: alert.icon || 'warning',
-      title: alert.title,
-      description: alert.description,
-      time: alert.time,
-      location: alert.location,
-      boat: alert.boat,
-      reporter: alert.reporter,
+      icon: getPriorityIcon(alert.priority),
+      title: alert.type === 'zone_violation' ? 'Violación de Zona Protegida' : 
+             alert.type === 'prolonged_stay' ? 'Permanencia Prolongada' : 'Alerta',
+      description: alert.description || `Embarcación ${alert.vesselId} detectada`,
+      time: formatTime(alert.createdAt),
+      location: alert.zoneName || 'Sin ubicación',
+      boat: alert.vesselId || 'Desconocido',
+      reporter: 'Sistema Automático',
       status: alert.status
     }));
+    
+    // Actualizar mapa
+    if (map) {
+      loadAlertsOnMap();
+    }
   } catch (error) {
     console.error('Error cargando alertas:', error);
     alerts.value = [];
   } finally {
     loading.value = false;
   }
+};
+
+const getPriorityIcon = (priority) => {
+  return priority === 'high' ? 'error' : 
+         priority === 'medium' ? 'warning' : 'info';
+};
+
+const formatTime = (timestamp) => {
+  if (!timestamp) return 'Hace un momento';
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = Math.floor((now - date) / 60000); // minutos
+  
+  if (diff < 1) return 'Hace un momento';
+  if (diff < 60) return `Hace ${diff} minutos`;
+  if (diff < 1440) return `Hace ${Math.floor(diff / 60)} horas`;
+  return `Hace ${Math.floor(diff / 1440)} días`;
 };
 
 // Resolver una alerta
@@ -205,11 +348,25 @@ const getPriorityLabel = (priority) => {
 };
 
 // Cargar alertas al montar el componente
-onMounted(() => {
-  loadAlerts();
+onMounted(async () => {
+  await loadAlerts();
+  
+  // Inicializar mapa después de cargar alertas
+  setTimeout(() => {
+    initMap();
+    loadZonesOnMap();
+    loadAlertsOnMap();
+  }, 100);
   
   // Actualizar alertas cada 60 segundos
   setInterval(loadAlerts, 60000);
+});
+
+onUnmounted(() => {
+  if (map) {
+    map.remove();
+    map = null;
+  }
 });
 
 // Recargar cuando cambia el filtro

@@ -1,0 +1,182 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║  🗺️  DISTRIBUCIÓN DE 50 EMBARCACIONES EN AGUAS GUATEMALTECAS           ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+                    MÉXICO
+                      ↓
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    🔵 ZONA CARIBE OESTE (10 barcos)
+    📍 15.5°N - 16.0°N, -89.2°W - -88.8°W
+        🚢 🚢 🚢
+        🚢 🚢 🚢
+        🚢 🚢 🚢 🚢
+        
+        🔵 ZONA CARIBE ESTE (10 barcos)
+        📍 15.7°N - 16.2°N, -88.9°W - -88.3°W
+            🚢 🚢 🚢 🚢
+            🚢 🚢 🚢
+            🚢 🚢 🚢
+                                    BELICE
+                                      →
+    
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+                GUATEMALA
+                    🇬🇹
+                    
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+🟢 ZONA PACÍFICO NORTE (10 barcos)
+📍 14.2°N - 14.8°N, -92.3°W - -91.5°W
+    🚢 🚢 🚢 🚢
+    🚢 🚢 🚢
+    🚢 🚢 🚢
+
+🟢 ZONA PACÍFICO CENTRAL (10 barcos)
+📍 13.7°N - 14.3°N, -91.8°W - -90.8°W
+    🚢 🚢 🚢
+    🚢 🚢 🚢 🚢
+    🚢 🚢 🚢
+
+🟢 ZONA PACÍFICO SUR (10 barcos)
+📍 13.2°N - 13.8°N, -91.2°W - -90.3°W
+    🚢 🚢 🚢 🚢
+    🚢 🚢
+    🚢 🚢 🚢 🚢
+    
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    
+            EL SALVADOR / HONDURAS
+                      ↓
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  📊 EJEMPLO DE COORDENADAS GENERADAS                                     ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+Embarcación #1  → Pacífico Norte   → Lat: 14.532156, Lon: -91.847293
+Embarcación #2  → Caribe Este      → Lat: 15.943281, Lon: -88.612945
+Embarcación #3  → Pacífico Central → Lat: 13.987654, Lon: -91.234567
+Embarcación #4  → Caribe Oeste     → Lat: 15.754321, Lon: -89.087654
+Embarcación #5  → Pacífico Sur     → Lat: 13.456789, Lon: -90.765432
+...
+Embarcación #50 → Pacífico Norte   → Lat: 14.687123, Lon: -91.987456
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  🎯 CARACTERÍSTICAS DEL SISTEMA                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+✅ COHERENCIA
+   - Mismo ID de embarcación = Mismas coordenadas SIEMPRE
+   - Cache mantiene consistencia entre peticiones
+   - Todos los mapas muestran las mismas posiciones
+
+✅ REALISMO
+   - Coordenadas dentro de aguas territoriales de Guatemala
+   - Distribución entre costa Pacífico (30 barcos) y Caribe (20 barcos)
+   - Respeta límites marítimos internacionales
+
+✅ DISTRIBUCIÓN
+   - 5 zonas marítimas claramente definidas
+   - ~10 embarcaciones por zona
+   - Evita superposición de marcadores
+
+✅ HASH DETERMINÍSTICO
+   - Usa el ID de la embarcación como semilla
+   - Genera posiciones pseudo-aleatorias pero fijas
+   - Misma entrada = Misma salida siempre
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  🧮 ALGORITMO SIMPLIFICADO                                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+function generatePosition(vesselId, index) {
+  // 1. Seleccionar zona (0-4) basada en índice
+  zoneIndex = index % 5
+  zone = ZONES[zoneIndex]
+  
+  // 2. Generar hash del ID
+  hash = simpleHash(vesselId)
+  
+  // 3. Convertir hash a coordenadas dentro de la zona
+  latOffset = (hash % 1000 / 1000) * (zone.maxLat - zone.minLat)
+  lonOffset = ((hash * 7) % 1000 / 1000) * (zone.maxLon - zone.minLon)
+  
+  // 4. Calcular posición final
+  latitude = zone.minLat + latOffset
+  longitude = zone.minLon + lonOffset
+  
+  // 5. Guardar en cache
+  cache[vesselId] = { latitude, longitude, zone }
+  
+  return { latitude, longitude, zone }
+}
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  🔄 FLUJO DE DATOS                                                       ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+Frontend (Vue)
+    ↓
+    📡 GET /api/vessels/search?query=fishing&limit=50
+    ↓
+Backend Controller (vessels.controller.js)
+    ↓
+    🌊 GFW API → Obtiene datos de embarcaciones
+    ↓
+    ✨ vessel-positions.service.js → Agrega coordenadas
+    ↓
+    💾 Cache (Map) → Guarda para consistencia
+    ↓
+    📤 Response con 50 embarcaciones + coordenadas
+    ↓
+Frontend (Dashboard/Radar/Alertas)
+    ↓
+    🗺️ Leaflet → Dibuja marcadores en el mapa
+    ↓
+    👤 Usuario ve las embarcaciones
+
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  ✅ RESULTADO EN LOS MAPAS                                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+Dashboard:
+┌────────────────────────────────────┐
+│  Mapa en Tiempo Real               │
+│  ┌──────────────────────────────┐  │
+│  │        GUATEMALA             │  │
+│  │                              │  │
+│  │     🟢🟢🟢    🔵🔵         │  │
+│  │    🟢🟢🟢🟢   🔵🔵🔵       │  │
+│  │     🟢🟢🟢                  │  │
+│  │                              │  │
+│  │    🟢🟢🟢🟢🟢              │  │
+│  │     🟢🟢🟢                  │  │
+│  │                              │  │
+│  │    🟢🟢🟢🟢                 │  │
+│  │     🟢🟢🟢🟢                │  │
+│  └──────────────────────────────┘  │
+│  50 embarcaciones activas          │
+└────────────────────────────────────┘
+
+Radar:
+┌────────────────────────────────────┐
+│  🚢 Embarcaciones Detectadas (50)  │
+│  ┌──────────────────────────────┐  │
+│  │ PACIFIC EXPLORER      🟢     │  │
+│  │ MMSI: 538005989              │  │
+│  │ Bandera: Marshall Islands    │  │
+│  │ [Ver] [Rastrear]             │  │
+│  ├──────────────────────────────┤  │
+│  │ OCEAN VOYAGER        🟢      │  │
+│  │ MMSI: 412345678              │  │
+│  │ Bandera: China               │  │
+│  │ [Ver] [Rastrear]             │  │
+│  └──────────────────────────────┘  │
+└────────────────────────────────────┘
+

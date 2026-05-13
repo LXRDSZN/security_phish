@@ -1,4 +1,5 @@
 import { searchVessels, getVesselById } from '../services/gfw.service.js';
+import { addPositionsToVessels } from '../services/vessel-positions.service.js';
 
 /**
  * 🔍 GET /api/vessels/search?q=
@@ -20,7 +21,7 @@ export const search = async (req, res) => {
     }
 
     // Normalizar a formato esperado por tu UI
-    const vessels = (response.entries || []).map((vessel) => {
+    const vessels = (response.entries || []).map((vessel, index) => {
       // GFW v3 estructura: vessel.registryInfo[], vessel.selfReportedInfo, vessel.combinedSourcesInfo[]
       const registry = vessel.registryInfo?.[0] || {};
       const selfReported = vessel.selfReportedInfo || {};
@@ -40,9 +41,12 @@ export const search = async (req, res) => {
       };
     });
 
+    // Agregar coordenadas fijas y coherentes usando el servicio
+    const vesselsWithPositions = addPositionsToVessels(vessels);
+
     res.json({
-      total: response.total || vessels.length,
-      vessels,
+      total: response.total || vesselsWithPositions.length,
+      vessels: vesselsWithPositions,
       limit: parseInt(limit),
     });
   } catch (error) {
@@ -85,7 +89,10 @@ export const getById = async (req, res) => {
       registryAuthorizations: identity.authorizations || [],
     };
 
-    res.json(vessel);
+    // Agregar posición usando el servicio
+    const vesselsWithPosition = addPositionsToVessels([vessel]);
+
+    res.json(vesselsWithPosition[0]);
   } catch (error) {
     console.error('Error en vessels/:id:', error);
     res.status(500).json({ error: 'Error obteniendo embarcación' });
